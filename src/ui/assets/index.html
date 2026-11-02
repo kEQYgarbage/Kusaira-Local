@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
   <title>Kusaira Local Anime</title>
   <style>
 /*__STYLE_CSS__*/
@@ -17,17 +18,19 @@
       </div>
       <nav class="header-nav">
         <button class="nav-btn active" id="nav-btn-cat" onclick="navTo('catalog')">Каталог</button>
+        <button class="nav-btn" id="nav-btn-lib" onclick="navTo('library')">Моя библиотека</button>
+        <button class="nav-btn" id="nav-btn-set" onclick="openSettingsModal()">⚙️ Настройки</button>
       </nav>
     </div>
 
     <div class="search-wrap">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.6"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      <input type="text" class="search-input" placeholder="Поиск по онгоингам и классике..." oninput="searchAnime(this.value)">
+      <input type="text" class="search-input" id="search-input-field" placeholder="Поиск по всей базе Shikimori..." oninput="searchAnime(this.value)">
     </div>
 
     <div class="status-pill">
       <span class="status-dot"></span>
-      <span>Локальный стриминг RuTracker</span>
+      <span>RuTracker Zero-Login</span>
     </div>
   </header>
 
@@ -37,7 +40,7 @@
       <!-- Search Results shelf (shown on query) -->
       <div id="shelf-search-wrap" style="display: none; margin-bottom: 36px;">
         <div class="shelf-header">
-          <div class="shelf-title" id="shelf-search-title">🔍 Результаты поиска</div>
+          <div class="shelf-title" id="shelf-search-title">🔍 Результаты поиска (Вся база Shikimori)</div>
         </div>
         <div class="cards-row" id="shelf-search"></div>
       </div>
@@ -60,6 +63,22 @@
       </div>
     </section>
 
+    <!-- My Library View -->
+    <section class="view-section" id="view-library">
+      <div class="shelf-header">
+        <div class="shelf-title">📚 Моя библиотека</div>
+      </div>
+      <div class="lib-tabs">
+        <button class="lib-tab active" id="tab-lib-all" onclick="filterLibrary('all')">Все</button>
+        <button class="lib-tab" id="tab-lib-watching" onclick="filterLibrary('watching')">👁️ Смотрю</button>
+        <button class="lib-tab" id="tab-lib-planned" onclick="filterLibrary('planned')">⏳ В планах</button>
+        <button class="lib-tab" id="tab-lib-completed" onclick="filterLibrary('completed')">✅ Просмотрено</button>
+        <button class="lib-tab" id="tab-lib-favorite" onclick="filterLibrary('favorite')">⭐ Избранное</button>
+      </div>
+      <div class="cards-row" id="shelf-library"></div>
+      <div class="empty-state" id="library-empty" style="display: none;">В этом списке пока ничего нет. Добавьте аниме из каталога через карточку тайтла!</div>
+    </section>
+
     <!-- Detail View -->
     <section class="view-section" id="view-detail">
       <div class="detail-header-bar">
@@ -76,6 +95,7 @@
         <div class="detail-content">
           <div class="detail-title" id="detail-title">Загрузка...</div>
           <div class="detail-subtitle" id="detail-subtitle"></div>
+          
           <div class="detail-meta-line" id="detail-meta">
             <span style="color: var(--accent-gold)" id="detail-score">★ 8.8</span>
             <span>•</span>
@@ -83,16 +103,108 @@
             <span>•</span>
             <span id="detail-release">1080p BDRip HEVC FLAC</span>
           </div>
+
+          <div class="detail-actions-bar">
+            <!-- Library dropdown -->
+            <div class="library-dropdown-wrap">
+              <button class="btn-lib-action" id="detail-lib-btn" onclick="toggleLibDropdown()">
+                <span id="detail-lib-icon">➕</span>
+                <span id="detail-lib-text">В библиотеку</span>
+                <span style="font-size: 0.65rem; margin-left: 6px; opacity: 0.7;">▼</span>
+              </button>
+              <div class="lib-dropdown-menu" id="lib-dropdown-menu" style="display: none;">
+                <div class="lib-dropdown-item" onclick="setAnimeStatus('watching')">👁️ Смотрю</div>
+                <div class="lib-dropdown-item" onclick="setAnimeStatus('planned')">⏳ В планах</div>
+                <div class="lib-dropdown-item" onclick="setAnimeStatus('completed')">✅ Просмотрено</div>
+                <div class="lib-dropdown-item" onclick="setAnimeStatus('favorite')">⭐ В избранное</div>
+                <div class="lib-dropdown-item danger" onclick="removeAnimeFromLibrary()">❌ Убрать из библиотеки</div>
+              </div>
+            </div>
+
+            <!-- Release picker button -->
+            <button class="btn-select-release" onclick="openReleasesModal()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Выбрать торрент RuTracker</span>
+              <span class="pts-pill" id="detail-active-pts">98 PTS</span>
+            </button>
+          </div>
+
           <div class="detail-desc" id="detail-desc"></div>
 
+          <!-- Franchise / Related section -->
+          <div class="related-section" id="detail-related-section">
+            <div class="section-heading">🔗 Связанное (Франшиза)</div>
+            <div class="related-list" id="detail-related-list"></div>
+          </div>
+
+          <!-- Episodes Grid -->
           <div style="margin-top: 24px;">
-            <div style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 8px;">Серии (Мгновенный стриминг)</div>
+            <div class="section-heading">Серии (Мгновенный стриминг)</div>
             <div class="episodes-grid" id="episodes-grid"></div>
           </div>
         </div>
       </div>
     </section>
   </main>
+
+  <!-- Releases Modal -->
+  <div class="modal-overlay" id="releases-modal" style="display: none;" onclick="closeModalOnBg(event, 'releases-modal')">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">📦 Доступные релизы RuTracker</div>
+        <button class="modal-close" onclick="closeReleasesModal()">✕</button>
+      </div>
+      <div class="modal-subtitle">Сортировка по качеству PTS: выберите любую раздачу со своей любимой озвучкой:</div>
+      <div class="releases-list" id="releases-modal-list"></div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settings-modal" style="display: none;" onclick="closeModalOnBg(event, 'settings-modal')">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ Настройки Kusaira Local Anime</div>
+        <button class="modal-close" onclick="closeSettingsModal()">✕</button>
+      </div>
+      <div class="settings-form">
+        <div class="setting-item">
+          <label class="setting-label">Приоритет озвучки:</label>
+          <select class="setting-select" id="set-voiceover">
+            <option value="Studio Band">Studio Band (Студийный звук, FLAC)</option>
+            <option value="AniLibria">AniLibria (Классический дубляж)</option>
+            <option value="Dream Cast">Dream Cast</option>
+            <option value="Flarrow Films">Flarrow Films</option>
+            <option value="Reanimedia">Reanimedia</option>
+            <option value="Original">Оригинал + Русские субтитры</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label">Качество видео:</label>
+          <select class="setting-select" id="set-quality">
+            <option value="1080p">1080p BDRip HEVC 10-bit (Рекомендуется)</option>
+            <option value="4K">4K UHD Remux HDR</option>
+            <option value="720p">720p WEB-DL (Экономия трафика)</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label">Аппаратное декодирование LibVLC:</label>
+          <select class="setting-select" id="set-hwaccel">
+            <option value="vaapi">Включено (VA-API Wayland/Linux)</option>
+            <option value="auto">Автоопределение видеочипа</option>
+            <option value="none">Выключено (Программное CPU)</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label">Статус RuTracker Zero-Login:</label>
+          <div class="status-indicator-box">
+            <span class="status-dot"></span>
+            <span>Firefox SQLite cookies активны (bb_session подключена)</span>
+          </div>
+        </div>
+        <button class="btn-save-settings" onclick="saveSettings()">Сохранить параметры</button>
+      </div>
+    </div>
+  </div>
 
   <script>
 /*__APP_JS__*/

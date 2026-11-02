@@ -1,6 +1,35 @@
-__pycache__/
-*.pyc
-.venv/
-.superpowers/
-*.log
+# Rust
 target/
+**/*.rs.bk
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# SQLite & App Data
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+data/*.sqlite
+cache/
+downloads/
+*.torrent
+
+# Logs & Environment
+*.log
+.env
+.env.local
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*~
+.superpowers/
+.gemini/

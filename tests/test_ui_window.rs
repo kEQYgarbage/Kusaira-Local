@@ -66,3 +66,33 @@ fn test_ui_no_title_button_and_clean_brand() {
     assert!(!html.contains("Тайтл</button>"));
     assert!(html.contains("<div class=\"header-brand\" onclick=\"navTo('catalog')\">\n        <span>Kusaira</span>"));
 }
+
+#[test]
+fn test_handle_ipc_get_related() {
+    let json_msg = r#"{"cmd": "get_related", "id": 52991}"#;
+    let resp = handle_ipc_command(json_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert!(js.contains("renderRelatedAnime("));
+    assert!(js.contains("Продолжение"));
+}
+
+#[test]
+fn test_handle_ipc_get_releases() {
+    let json_msg = r#"{"cmd": "get_releases", "title": "Dandadan"}"#;
+    let resp = handle_ipc_command(json_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert!(js.contains("setReleases("));
+    assert!(js.contains("\"pts\":"));
+}
+
+#[test]
+fn test_ui_library_and_modals_present() {
+    let html = bundle_ui_html();
+    assert!(html.contains("id=\"nav-btn-lib\""));
+    assert!(html.contains("id=\"view-library\""));
+    assert!(html.contains("id=\"releases-modal\""));
+    assert!(html.contains("id=\"settings-modal\""));
+    assert!(html.contains("meta name=\"referrer\" content=\"no-referrer\""));
+}

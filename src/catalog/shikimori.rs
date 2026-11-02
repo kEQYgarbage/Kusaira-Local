@@ -11,7 +11,7 @@ pub struct ShikimoriClient {
 
 impl Default for ShikimoriClient {
     fn default() -> Self {
-        Self::new("https://shikimori.one")
+        Self::new("https://shikimori.io")
     }
 }
 
@@ -54,6 +54,28 @@ impl ShikimoriClient {
             self.base_url, anime_id, limit
         );
         self.request_cards(&url).await
+    }
+
+    /// Fetch related franchise anime (sequels, prequels, spin-offs) for an anime ID.
+    pub async fn fetch_related(&self, anime_id: u64) -> Result<Vec<crate::catalog::models::RelatedItem>, String> {
+        let url = format!("{}/api/animes/{}/related", self.base_url, anime_id);
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| format!("Network request failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("Shikimori API returned status {}", resp.status()));
+        }
+
+        let items = resp
+            .json::<Vec<crate::catalog::models::RelatedItem>>()
+            .await
+            .map_err(|e| format!("Failed to parse Shikimori related JSON: {}", e))?;
+
+        Ok(items)
     }
 
     /// Search anime by title in Russian or English.

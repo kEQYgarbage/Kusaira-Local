@@ -22,6 +22,13 @@ pub struct AnimeCard {
     pub kind: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RelatedItem {
+    pub relation: Option<String>,
+    pub relation_russian: Option<String>,
+    pub anime: Option<AnimeCard>,
+}
+
 impl AnimeCard {
     /// Return best human-readable Russian display title, falling back to original Romaji.
     pub fn display_title(&self) -> &str {
@@ -35,7 +42,7 @@ impl AnimeCard {
 
     /// Return absolute HTTPS URL for the high-resolution poster.
     pub fn poster_url(&self) -> String {
-        let base = "https://shikimori.one";
+        let base = "https://shikimori.io";
         if let Some(ref img) = self.image {
             if let Some(ref orig) = img.original {
                 if orig.starts_with("http") {

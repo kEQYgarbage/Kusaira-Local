@@ -62,7 +62,7 @@ fn test_anime_card_poster_url_construction() {
         kind: Some("tv".to_string()),
     };
 
-    assert_eq!(card.poster_url(), "https://shikimori.one/system/animes/original/21.jpg");
+    assert_eq!(card.poster_url(), "https://shikimori.io/system/animes/original/21.jpg");
 }
 
 #[test]
@@ -91,5 +91,5 @@ fn test_deserialize_shikimori_fixture() {
     assert_eq!(cards[0].id, 55888);
     assert_eq!(cards[0].display_title(), "Реинкарнация безработного 2. Часть 2");
     assert_eq!(cards[0].score_f32(), 8.54);
-    assert_eq!(cards[0].poster_url(), "https://shikimori.one/system/animes/original/55888.jpg");
+    assert_eq!(cards[0].poster_url(), "https://shikimori.io/system/animes/original/55888.jpg");
 }
