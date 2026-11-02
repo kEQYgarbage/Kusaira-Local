@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Kusaira Local Anime
+GenericName=Anime Streaming Player
+Comment=Kusaira Local Anime — нативное десктопное приложение для просмотра аниме в наивысшем качестве
+Exec=/home/keqqyrr/anime-scout/bin/kusaira
+Icon=/home/keqqyrr/anime-scout/anime_scout/ui/kusaira.svg
+Terminal=false
+Categories=AudioVideo;Video;Player;
+Keywords=anime;kusaira;torrent;rutracker;player;vlc;streaming;
+StartupWMClass=kusaira

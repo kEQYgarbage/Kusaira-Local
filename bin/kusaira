@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Kusaira Local Anime — Desktop Application Launcher
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$SCRIPT_DIR"
+
+if [[ -f "$SCRIPT_DIR/target/release/kusaira" ]]; then
+    EXEC_BIN="$SCRIPT_DIR/target/release/kusaira"
+elif [[ -f "$SCRIPT_DIR/target/debug/kusaira" ]]; then
+    EXEC_BIN="$SCRIPT_DIR/target/debug/kusaira"
+else
+    echo "🌸 Компиляция Kusaira Local Anime..."
+    nix-shell --run "cargo build --release"
+    EXEC_BIN="$SCRIPT_DIR/target/release/kusaira"
+fi
+
+export LD_LIBRARY_PATH="/nix/store/s5q6s4vj4cr9b0k0id189yay0ajhd4ia-vlc-3.0.24/lib:${LD_LIBRARY_PATH:-}"
+
+echo "🌸 Запуск Kusaira Local Anime..."
+exec "$EXEC_BIN" "$@"
