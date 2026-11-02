@@ -8,7 +8,7 @@
 /*__STYLE_CSS__*/
   </style>
 </head>
-<body>
+<body data-theme="cyan" data-density="standard">
 
   <!-- Top Header -->
   <header class="header">
@@ -19,7 +19,7 @@
       <nav class="header-nav">
         <button class="nav-btn active" id="nav-btn-cat" onclick="navTo('catalog')">Каталог</button>
         <button class="nav-btn" id="nav-btn-lib" onclick="navTo('library')">Моя библиотека</button>
-        <button class="nav-btn" id="nav-btn-set" onclick="openSettingsModal()">⚙️ Настройки</button>
+        <button class="nav-btn" id="nav-btn-set" onclick="openSettingsModal()">Настройки</button>
       </nav>
     </div>
 
@@ -86,6 +86,11 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
           <span>Назад в каталог</span>
         </button>
+      </div>
+
+      <!-- Opening Skip Alert Banner -->
+      <div class="opening-banner" id="opening-banner" style="display: none;" onclick="triggerOpeningSkip()">
+        <span>⏩ <strong id="opening-banner-text">Опенинг (~85с)</strong> — нажмите <kbd id="opening-kbd-hint">Tab</kbd> для пропуска</span>
       </div>
 
       <div class="detail-layout">
@@ -159,49 +164,164 @@
     </div>
   </div>
 
-  <!-- Settings Modal -->
+  <!-- Multi-tab Settings Modal -->
   <div class="modal-overlay" id="settings-modal" style="display: none;" onclick="closeModalOnBg(event, 'settings-modal')">
-    <div class="modal-card">
+    <div class="modal-card modal-large">
       <div class="modal-header">
-        <div class="modal-title">⚙️ Настройки Kusaira Local Anime</div>
+        <div class="modal-title">Настройки Kusaira Local Anime</div>
         <button class="modal-close" onclick="closeSettingsModal()">✕</button>
       </div>
-      <div class="settings-form">
-        <div class="setting-item">
-          <label class="setting-label">Приоритет озвучки:</label>
-          <select class="setting-select" id="set-voiceover">
-            <option value="Studio Band">Studio Band (Студийный звук, FLAC)</option>
-            <option value="AniLibria">AniLibria (Классический дубляж)</option>
-            <option value="Dream Cast">Dream Cast</option>
-            <option value="Flarrow Films">Flarrow Films</option>
-            <option value="Reanimedia">Reanimedia</option>
-            <option value="Original">Оригинал + Русские субтитры</option>
-          </select>
+
+      <div class="settings-layout">
+        <!-- Settings sidebar tabs -->
+        <div class="settings-nav">
+          <button class="set-tab active" id="tab-btn-theme" onclick="switchSettingsTab('theme')">🎨 Внешний вид</button>
+          <button class="set-tab" id="tab-btn-player" onclick="switchSettingsTab('player')">🎬 Плеер и Скип</button>
+          <button class="set-tab" id="tab-btn-gc" onclick="switchSettingsTab('gc')">🧹 GC и Кэш</button>
+          <button class="set-tab" id="tab-btn-quality" onclick="switchSettingsTab('quality')">🔊 Озвучка и Видео</button>
+          <button class="set-tab" id="tab-btn-discord" onclick="switchSettingsTab('discord')">🎮 Discord RPC</button>
         </div>
-        <div class="setting-item">
-          <label class="setting-label">Качество видео:</label>
-          <select class="setting-select" id="set-quality">
-            <option value="1080p">1080p BDRip HEVC 10-bit (Рекомендуется)</option>
-            <option value="4K">4K UHD Remux HDR</option>
-            <option value="720p">720p WEB-DL (Экономия трафика)</option>
-          </select>
-        </div>
-        <div class="setting-item">
-          <label class="setting-label">Аппаратное декодирование LibVLC:</label>
-          <select class="setting-select" id="set-hwaccel">
-            <option value="vaapi">Включено (VA-API Wayland/Linux)</option>
-            <option value="auto">Автоопределение видеочипа</option>
-            <option value="none">Выключено (Программное CPU)</option>
-          </select>
-        </div>
-        <div class="setting-item">
-          <label class="setting-label">Статус RuTracker Zero-Login:</label>
-          <div class="status-indicator-box">
-            <span class="status-dot"></span>
-            <span>Firefox SQLite cookies активны (bb_session подключена)</span>
+
+        <!-- Settings tab contents -->
+        <div class="settings-content">
+          <!-- 1. Theming Panel -->
+          <div class="settings-panel active" id="panel-theme">
+            <div class="setting-item">
+              <label class="setting-label">Цветовая тема оформления:</label>
+              <select class="setting-select" id="set-theme" onchange="previewTheme(this.value)">
+                <option value="cyan">Kusaira Cyan (Фирменная лазурная)</option>
+                <option value="neon">Cyberpunk Neon (Фиолетово-розовая)</option>
+                <option value="emerald">Emerald Green (Изумрудная)</option>
+                <option value="oled">OLED Pure Black (Чистый глубокий черный)</option>
+                <option value="crimson">Crimson Red (Кроваво-красная)</option>
+              </select>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">Плотность сетки каталога:</label>
+              <select class="setting-select" id="set-density" onchange="previewDensity(this.value)">
+                <option value="standard">Стандартная (Баланс)</option>
+                <option value="compact">Компактная (Больше карточек)</option>
+                <option value="large">Крупная (Большие постеры)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 2. Player & Opening Skip Panel -->
+          <div class="settings-panel" id="panel-player" style="display: none;">
+            <div class="setting-item">
+              <label class="setting-label">Пропуск опенингов и эндингов:</label>
+              <select class="setting-select" id="set-op-skip">
+                <option value="tab">Клавиша Tab (с плашкой таймера)</option>
+                <option value="space">Клавиша Пробел (Space)</option>
+                <option value="auto">Автоматически (AniSkip точные границы)</option>
+                <option value="off">Выключено (ручная перемотка)</option>
+              </select>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">Шаг перемотки стрелками клавиатуры:</label>
+              <select class="setting-select" id="set-seek-step">
+                <option value="5">5 секунд</option>
+                <option value="10">10 секунд (по умолчанию)</option>
+                <option value="15">15 секунд</option>
+                <option value="30">30 секунд</option>
+              </select>
+            </div>
+            <div class="setting-checkbox-row">
+              <input type="checkbox" id="set-autoplay" checked>
+              <label for="set-autoplay">Автоматический переход к следующей серии (Binge-watching)</label>
+            </div>
+            <div class="setting-checkbox-row">
+              <input type="checkbox" id="set-resume" checked>
+              <label for="set-resume">Запоминать позицию воспроизведения при закрытии</label>
+            </div>
+            <div class="setting-checkbox-row">
+              <input type="checkbox" id="set-skip-ed">
+              <label for="set-skip-ed">Пропускать также финальные титры (эндинги)</label>
+            </div>
+          </div>
+
+          <!-- 3. GC & Cache Panel -->
+          <div class="settings-panel" id="panel-gc" style="display: none;">
+            <div class="gc-stat-box">
+              <div class="gc-stat-title">Текущее дисковое пространство кэша:</div>
+              <div class="gc-stat-val" id="gc-cache-size-text">0 МБ занято</div>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">Лимит кэша на диске (GC Threshold):</label>
+              <select class="setting-select" id="set-gc-max-gb">
+                <option value="5">5 ГБ (Экономия диска)</option>
+                <option value="10">10 ГБ</option>
+                <option value="20">20 ГБ (Рекомендуется)</option>
+                <option value="50">50 ГБ</option>
+                <option value="0">Без ограничений</option>
+              </select>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">Политика очистки серий (GC Retention):</label>
+              <select class="setting-select" id="set-gc-policy">
+                <option value="keep_3">Хранить последние 3 серии (Рекомендуется)</option>
+                <option value="immediate">Удалять серию сразу после досмотра</option>
+                <option value="ttl_3d">Хранить 3 дня</option>
+                <option value="manual">Только ручная очистка</option>
+              </select>
+            </div>
+            <div class="setting-checkbox-row">
+              <input type="checkbox" id="set-gc-exit" checked>
+              <label for="set-gc-exit">Очищать временные неполные чанки при закрытии приложения</label>
+            </div>
+            <div class="gc-action-buttons">
+              <button class="btn-gc-action" onclick="runGcClean(false)">🧹 Запустить GC (Очистить старое)</button>
+              <button class="btn-gc-action danger" onclick="runGcClean(true)">🗑️ Очистить весь кэш</button>
+            </div>
+          </div>
+
+          <!-- 4. Quality & Voiceover Panel -->
+          <div class="settings-panel" id="panel-quality" style="display: none;">
+            <div class="setting-item">
+              <label class="setting-label">Приоритет озвучки:</label>
+              <select class="setting-select" id="set-voiceover">
+                <option value="Studio Band">Studio Band (Студийный звук, FLAC)</option>
+                <option value="AniLibria">AniLibria (Классический дубляж)</option>
+                <option value="Dream Cast">Dream Cast</option>
+                <option value="Flarrow Films">Flarrow Films</option>
+                <option value="Reanimedia">Reanimedia</option>
+                <option value="Original">Оригинал + Русские субтитры</option>
+              </select>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">Качество видео:</label>
+              <select class="setting-select" id="set-quality">
+                <option value="1080p">1080p BDRip HEVC 10-bit (Рекомендуется)</option>
+                <option value="4K">4K UHD Remux HDR</option>
+                <option value="720p">720p WEB-DL (Экономия трафика)</option>
+              </select>
+            </div>
+            <div class="setting-item">
+              <label class="setting-label">Аппаратное декодирование LibVLC:</label>
+              <select class="setting-select" id="set-hwaccel">
+                <option value="vaapi">Включено (VA-API Wayland/Linux)</option>
+                <option value="auto">Автоопределение видеочипа</option>
+                <option value="none">Выключено (Программное CPU)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 5. Discord RPC Panel -->
+          <div class="settings-panel" id="panel-discord" style="display: none;">
+            <div class="setting-checkbox-row">
+              <input type="checkbox" id="set-discord-rpc" checked>
+              <label for="set-discord-rpc">Включить Discord Rich Presence (отображать статус в профиле Discord)</label>
+            </div>
+            <div class="status-indicator-box" style="margin-top: 14px;">
+              <span class="status-dot"></span>
+              <span>Discord IPC подключение через локальный UNIX сокет ($XDG_RUNTIME_DIR)</span>
+            </div>
           </div>
         </div>
-        <button class="btn-save-settings" onclick="saveSettings()">Сохранить параметры</button>
+      </div>
+
+      <div class="modal-footer-bar">
+        <button class="btn-save-settings" onclick="saveSettings()">Сохранить настройки</button>
       </div>
     </div>
   </div>

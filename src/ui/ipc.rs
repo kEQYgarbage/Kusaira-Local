@@ -14,6 +14,8 @@ pub struct IpcMessage {
     pub status: Option<String>,
     pub entry: Option<crate::library::LibraryEntry>,
     pub settings: Option<serde_json::Value>,
+    pub config: Option<crate::config::AppConfig>,
+    pub gc_mode: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -182,8 +184,42 @@ pub fn handle_ipc_command(json_str: &str) -> Option<String> {
             }
             None
         }
+        "get_config" => {
+            let cfg = crate::config::ConfigStore::load();
+            let json = serde_json::to_string(&cfg).unwrap_or_default();
+            Some(format!("applyConfig({});", json))
+        }
+        "save_config" => {
+            if let Some(cfg) = msg.config {
+                let _ = crate::config::ConfigStore::save(&cfg);
+            }
+            None
+        }
+        "run_gc" => {
+            let cache_dir = crate::torrent::default_cache_dir();
+            let stats = if msg.gc_mode.as_deref() == Some("all") {
+                crate::torrent::clean_all_cache(&cache_dir)
+            } else {
+                let cfg = crate::config::ConfigStore::load();
+                let max_bytes = (cfg.gc_max_disk_gb as u64) * 1024 * 1024 * 1024;
+                crate::torrent::run_garbage_collection(&cache_dir, max_bytes, &cfg.gc_policy)
+            };
+            let json = serde_json::to_string(&stats).unwrap_or_default();
+            Some(format!("onGcComplete({});", json))
+        }
+        "get_gc_stats" => {
+            let cache_dir = crate::torrent::default_cache_dir();
+            let total = crate::torrent::calculate_cache_size(&cache_dir);
+            Some(format!("setGcCacheBytes({});", total))
+        }
+        "discord_update" => {
+            let title = msg.title.unwrap_or_else(|| "Kusaira Local Anime".to_string());
+            let episode = msg.status.unwrap_or_else(|| "Просмотр".to_string());
+            let _ = crate::discord::DiscordRpc::default().set_activity(&title, &episode);
+            None
+        }
         "save_settings" => {
-            // Acknowledge settings saved
+            // Backward-compatibility alias
             None
         }
         _ => None,

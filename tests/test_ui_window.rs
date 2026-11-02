@@ -95,4 +95,28 @@ fn test_ui_library_and_modals_present() {
     assert!(html.contains("id=\"releases-modal\""));
     assert!(html.contains("id=\"settings-modal\""));
     assert!(html.contains("meta name=\"referrer\" content=\"no-referrer\""));
+    assert!(!html.contains("⚙️"));
+    assert!(html.contains("id=\"nav-btn-set\" onclick=\"openSettingsModal()\">Настройки</button>"));
+}
+
+#[test]
+fn test_handle_ipc_config_and_gc() {
+    let get_cfg_msg = r#"{"cmd": "get_config"}"#;
+    let resp = handle_ipc_command(get_cfg_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert!(js.contains("applyConfig("));
+    assert!(js.contains("opening_skip_mode"));
+
+    let gc_msg = r#"{"cmd": "run_gc", "gc_mode": "threshold"}"#;
+    let resp = handle_ipc_command(gc_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert!(js.contains("onGcComplete("));
+
+    let gc_stats_msg = r#"{"cmd": "get_gc_stats"}"#;
+    let resp = handle_ipc_command(gc_stats_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert!(js.contains("setGcCacheBytes("));
 }
