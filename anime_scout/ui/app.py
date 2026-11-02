@@ -96,22 +96,42 @@ def create_app() -> FastAPI:
 
 
 def main():
-    """Launch Kusaira Desktop local server and open in desktop window."""
-    import uvicorn
-    import webbrowser
+    """Launch Kusaira Desktop local server and open in standalone desktop window."""
     import time
     import threading
+    import uvicorn
+    from anime_scout.ui.window import launch_desktop_window
 
     app = create_app()
     port = 8765
     url = f"http://127.0.0.1:{port}"
 
-    def open_browser():
-        time.sleep(0.8)
-        webbrowser.open(url)
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
+    server = uvicorn.Server(config)
 
-    threading.Thread(target=open_browser, daemon=True).start()
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    server_thread = threading.Thread(target=server.run, daemon=True)
+    server_thread.start()
+
+    # Wait briefly for server initialization
+    time.sleep(0.5)
+
+    # Launch standalone application window
+    proc = launch_desktop_window(url)
+    if proc:
+        try:
+            proc.wait()
+        except KeyboardInterrupt:
+            proc.terminate()
+        finally:
+            server.should_exit = True
+            server_thread.join(timeout=2.0)
+    else:
+        try:
+            while server_thread.is_alive():
+                time.sleep(0.5)
+        except KeyboardInterrupt:
+            server.should_exit = True
+            server_thread.join(timeout=2.0)
 
 
 if __name__ == "__main__":
