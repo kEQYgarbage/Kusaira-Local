@@ -16,10 +16,13 @@ pub fn bundle_ui_html() -> String {
         .replace("/*__APP_JS__*/", RAW_JS)
 }
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 /// Create native window with WebKitGTK webview and bidirectional IPC.
 pub fn create_kusaira_window(
     event_loop: &EventLoop<()>,
-) -> Result<(Window, WebView), String> {
+) -> Result<(Window, Rc<RefCell<Option<WebView>>>), String> {
     let window = WindowBuilder::new()
         .with_title("Kusaira Local Anime")
         .with_inner_size(tao::dpi::LogicalSize::new(1280.0, 820.0))
@@ -28,11 +31,18 @@ pub fn create_kusaira_window(
 
     let html = bundle_ui_html();
 
+    let webview_holder: Rc<RefCell<Option<WebView>>> = Rc::new(RefCell::new(None));
+    let webview_ref = Rc::clone(&webview_holder);
+
     let builder = wry::WebViewBuilder::new()
         .with_html(html)
         .with_ipc_handler(move |req: wry::http::Request<String>| {
             if let Some(js_code) = handle_ipc_command(req.body()) {
-                let _ = js_code;
+                if let Ok(guard) = webview_ref.try_borrow() {
+                    if let Some(ref wv) = *guard {
+                        let _ = wv.evaluate_script(&js_code);
+                    }
+                }
             }
         });
 
@@ -53,5 +63,7 @@ pub fn create_kusaira_window(
         .build(&window)
         .map_err(|e| format!("Failed to create webview: {}", e))?;
 
-    Ok((window, webview))
+    *webview_holder.borrow_mut() = Some(webview);
+
+    Ok((window, webview_holder))
 }

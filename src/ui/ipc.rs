@@ -18,7 +18,7 @@ pub struct CatalogPayload {
     pub ranked: Vec<ClientCard>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientCard {
     pub id: u64,
     pub title: String,
@@ -27,6 +27,24 @@ pub struct ClientCard {
     pub score: String,
     pub pts: u32,
     pub episodes: u32,
+    pub description: String,
+    pub release: String,
+}
+
+impl From<crate::catalog::PresetAnime> for ClientCard {
+    fn from(p: crate::catalog::PresetAnime) -> Self {
+        Self {
+            id: p.id,
+            title: p.title.to_string(),
+            name: p.name.to_string(),
+            poster: p.poster.to_string(),
+            score: p.score.to_string(),
+            pts: p.pts,
+            episodes: p.episodes,
+            description: p.description.to_string(),
+            release: p.release.to_string(),
+        }
+    }
 }
 
 pub fn handle_ipc_command(json_str: &str) -> Option<String> {
@@ -37,31 +55,23 @@ pub fn handle_ipc_command(json_str: &str) -> Option<String> {
 
     match msg.cmd.as_str() {
         "get_catalog" => {
-            let mock_ongoing = vec![
-                ClientCard {
-                    id: 55888,
-                    title: "Реинкарнация безработного 2".to_string(),
-                    name: "Mushoku Tensei II".to_string(),
-                    poster: "https://shikimori.one/system/animes/original/55888.jpg".to_string(),
-                    score: "8.54".to_string(),
-                    pts: 96,
-                    episodes: 12,
-                },
-                ClientCard {
-                    id: 52991,
-                    title: "Провожающая в последний путь Фрирен".to_string(),
-                    name: "Sousou no Frieren".to_string(),
-                    poster: "https://shikimori.one/system/animes/original/52991.jpg".to_string(),
-                    score: "9.31".to_string(),
-                    pts: 98,
-                    episodes: 28,
-                },
-            ];
+            let ongoing: Vec<ClientCard> = crate::catalog::presets::get_preset_ongoing()
+                .into_iter()
+                .map(ClientCard::from)
+                .collect();
+            let similar: Vec<ClientCard> = crate::catalog::presets::get_preset_similar()
+                .into_iter()
+                .map(ClientCard::from)
+                .collect();
+            let ranked: Vec<ClientCard> = crate::catalog::presets::get_preset_ranked()
+                .into_iter()
+                .map(ClientCard::from)
+                .collect();
 
             let payload = CatalogPayload {
-                ongoing: mock_ongoing.clone(),
-                similar: mock_ongoing.clone(),
-                ranked: mock_ongoing,
+                ongoing,
+                similar,
+                ranked,
             };
 
             let json = serde_json::to_string(&payload).unwrap_or_default();
@@ -71,17 +81,30 @@ pub fn handle_ipc_command(json_str: &str) -> Option<String> {
             ))
         }
         "get_details" => {
-            let card = ClientCard {
-                id: 52991,
-                title: "Провожающая в последний путь Фрирен".to_string(),
-                name: "Sousou no Frieren".to_string(),
-                poster: "https://shikimori.one/system/animes/original/52991.jpg".to_string(),
-                score: "9.31".to_string(),
-                pts: 98,
-                episodes: 28,
-            };
+            let target_id = msg.id.and_then(|v| match v {
+                serde_json::Value::Number(n) => n.as_u64(),
+                serde_json::Value::String(s) => s.parse::<u64>().ok(),
+                _ => None,
+            }).unwrap_or(52991);
+
+            let card = crate::catalog::presets::find_preset_by_id(target_id)
+                .map(ClientCard::from)
+                .unwrap_or_else(|| {
+                    ClientCard::from(crate::catalog::presets::get_preset_ongoing()[0].clone())
+                });
+
             let json = serde_json::to_string(&card).unwrap_or_default();
             Some(format!("setDetails({});", json))
+        }
+        "search" => {
+            let query = msg.query.unwrap_or_default();
+            let results: Vec<ClientCard> = crate::catalog::presets::search_presets(&query)
+                .into_iter()
+                .map(ClientCard::from)
+                .collect();
+
+            let json = serde_json::to_string(&results).unwrap_or_default();
+            Some(format!("renderSearchResults({});", json))
         }
         _ => None,
     }

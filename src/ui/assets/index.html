@@ -13,12 +13,10 @@
   <header class="header">
     <div style="display: flex; align-items: center; gap: 24px;">
       <div class="header-brand" onclick="navTo('catalog')">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#2AABEE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Kusaira</span>
       </div>
       <nav class="header-nav">
         <button class="nav-btn active" id="nav-btn-cat" onclick="navTo('catalog')">Каталог</button>
-        <button class="nav-btn" id="nav-btn-det" onclick="navTo('detail')">Тайтл</button>
       </nav>
     </div>
 
@@ -36,24 +34,41 @@
   <main class="container">
     <!-- Catalog View -->
     <section class="view-section active" id="view-catalog">
-      <div class="shelf-header">
-        <div class="shelf-title">🌸 В тренде / Онгоинги сезона</div>
+      <!-- Search Results shelf (shown on query) -->
+      <div id="shelf-search-wrap" style="display: none; margin-bottom: 36px;">
+        <div class="shelf-header">
+          <div class="shelf-title" id="shelf-search-title">🔍 Результаты поиска</div>
+        </div>
+        <div class="cards-row" id="shelf-search"></div>
       </div>
-      <div class="cards-row" id="shelf-ongoing"></div>
 
-      <div class="shelf-header" style="margin-top: 36px;">
-        <div class="shelf-title">✨ Потому что вы смотрели Frieren</div>
-      </div>
-      <div class="cards-row" id="shelf-similar"></div>
+      <div id="catalog-shelves">
+        <div class="shelf-header">
+          <div class="shelf-title">🌸 В тренде / Онгоинги сезона</div>
+        </div>
+        <div class="cards-row" id="shelf-ongoing"></div>
 
-      <div class="shelf-header" style="margin-top: 36px;">
-        <div class="shelf-title">🏆 Золотая коллекция (Топ рейтинга)</div>
+        <div class="shelf-header" style="margin-top: 36px;">
+          <div class="shelf-title">✨ Потому что вы смотрели Frieren</div>
+        </div>
+        <div class="cards-row" id="shelf-similar"></div>
+
+        <div class="shelf-header" style="margin-top: 36px;">
+          <div class="shelf-title">🏆 Золотая коллекция (Топ рейтинга)</div>
+        </div>
+        <div class="cards-row" id="shelf-ranked"></div>
       </div>
-      <div class="cards-row" id="shelf-ranked"></div>
     </section>
 
     <!-- Detail View -->
     <section class="view-section" id="view-detail">
+      <div class="detail-header-bar">
+        <button class="btn-back" onclick="navTo('catalog')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <span>Назад в каталог</span>
+        </button>
+      </div>
+
       <div class="detail-layout">
         <div class="detail-poster">
           <img id="detail-poster-img" src="" alt="Poster">
@@ -62,12 +77,13 @@
           <div class="detail-title" id="detail-title">Загрузка...</div>
           <div class="detail-subtitle" id="detail-subtitle"></div>
           <div class="detail-meta-line" id="detail-meta">
-            <span style="color: var(--accent-gold)">★ 8.8</span>
+            <span style="color: var(--accent-gold)" id="detail-score">★ 8.8</span>
             <span>•</span>
-            <span style="color: var(--accent-primary); font-weight: 700">96 PTS</span>
+            <span style="color: var(--accent-primary); font-weight: 700" id="detail-pts">96 PTS</span>
             <span>•</span>
-            <span>1080p BDRip HEVC FLAC</span>
+            <span id="detail-release">1080p BDRip HEVC FLAC</span>
           </div>
+          <div class="detail-desc" id="detail-desc"></div>
 
           <div style="margin-top: 24px;">
             <div style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 8px;">Серии (Мгновенный стриминг)</div>
