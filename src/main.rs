@@ -12,6 +12,10 @@ use tao::event::{Event, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoop};
 
 fn main() {
+    // Ensure WebKitGTK operates stably on GNOME Wayland without DMABUF protocol errors
+    #[cfg(not(target_os = "windows"))]
+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+
     let args: Vec<String> = env::args().collect();
 
     if args.iter().any(|a| a == "--version" || a == "-v") {

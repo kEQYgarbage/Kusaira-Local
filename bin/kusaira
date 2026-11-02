@@ -15,6 +15,7 @@ else
     EXEC_BIN="$SCRIPT_DIR/target/release/kusaira"
 fi
 
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
 export LD_LIBRARY_PATH="/nix/store/s5q6s4vj4cr9b0k0id189yay0ajhd4ia-vlc-3.0.24/lib:${LD_LIBRARY_PATH:-}"
 
 echo "🌸 Запуск Kusaira Local Anime..."

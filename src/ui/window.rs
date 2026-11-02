@@ -28,15 +28,30 @@ pub fn create_kusaira_window(
 
     let html = bundle_ui_html();
 
-    let webview = wry::WebViewBuilder::new()
+    let builder = wry::WebViewBuilder::new()
         .with_html(html)
         .with_ipc_handler(move |req: wry::http::Request<String>| {
             if let Some(js_code) = handle_ipc_command(req.body()) {
                 let _ = js_code;
             }
-        })
+        });
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let webview = {
+        use tao::platform::unix::WindowExtUnix;
+        use wry::WebViewBuilderExtUnix;
+        let vbox = window
+            .default_vbox()
+            .ok_or_else(|| "Failed to get window default vbox".to_string())?;
+        builder
+            .build_gtk(vbox)
+            .map_err(|e| format!("Failed to create WebKitGTK webview: {}", e))?
+    };
+
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    let webview = builder
         .build(&window)
-        .map_err(|e| format!("Failed to create WebKitGTK webview: {}", e))?;
+        .map_err(|e| format!("Failed to create webview: {}", e))?;
 
     Ok((window, webview))
 }
