@@ -1,9 +1,11 @@
 # Architecture & Design Spec: Kusaira Native Rust Desktop (From Scratch)
 
 **Date**: 2026-11-02  
-**Status**: Draft for Builder Check & User Review  
-**Target Platform**: Linux (NixOS / GNOME Wayland & X11)  
+**Full Name**: Kusaira Local Anime  
+**Short Name**: Kusaira  
 **Binary Name**: `kusaira`  
+**Description**: Kusaira Local Anime — нативное десктопное приложение для просмотра аниме в наивысшем качестве. Умный каталог с онгоингами и рекомендациями, автоскоринг раздач с RuTracker (PTS), мгновенный стриминг торрентов без ожидания загрузки и встроенный плеер libvlc с аппаратным ускорением, 10-bit HEVC и выбором озвучек на лету.  
+**Target Platforms**: Linux (NixOS / GNOME Wayland & X11), Windows 10/11 (WebView2 + libvlc.dll)  
 
 ---
 
