@@ -9,3 +9,4 @@ pub mod catalog;
 pub mod player;
 pub mod scorer;
 pub mod torrent;
+pub mod ui;

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Kusaira Local Anime</title>
+  <style>
+/*__STYLE_CSS__*/
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header class="header">
+    <div style="display: flex; align-items: center; gap: 24px;">
+      <div class="header-brand" onclick="navTo('catalog')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#2AABEE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Kusaira</span>
+      </div>
+      <nav class="header-nav">
+        <button class="nav-btn active" id="nav-btn-cat" onclick="navTo('catalog')">Каталог</button>
+        <button class="nav-btn" id="nav-btn-det" onclick="navTo('detail')">Тайтл</button>
+      </nav>
+    </div>
+
+    <div class="search-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.6"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" class="search-input" placeholder="Поиск по онгоингам и классике..." oninput="searchAnime(this.value)">
+    </div>
+
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span>Локальный стриминг RuTracker</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Catalog View -->
+    <section class="view-section active" id="view-catalog">
+      <div class="shelf-header">
+        <div class="shelf-title">🌸 В тренде / Онгоинги сезона</div>
+      </div>
+      <div class="cards-row" id="shelf-ongoing"></div>
+
+      <div class="shelf-header" style="margin-top: 36px;">
+        <div class="shelf-title">✨ Потому что вы смотрели Frieren</div>
+      </div>
+      <div class="cards-row" id="shelf-similar"></div>
+
+      <div class="shelf-header" style="margin-top: 36px;">
+        <div class="shelf-title">🏆 Золотая коллекция (Топ рейтинга)</div>
+      </div>
+      <div class="cards-row" id="shelf-ranked"></div>
+    </section>
+
+    <!-- Detail View -->
+    <section class="view-section" id="view-detail">
+      <div class="detail-layout">
+        <div class="detail-poster">
+          <img id="detail-poster-img" src="" alt="Poster">
+        </div>
+        <div class="detail-content">
+          <div class="detail-title" id="detail-title">Загрузка...</div>
+          <div class="detail-subtitle" id="detail-subtitle"></div>
+          <div class="detail-meta-line" id="detail-meta">
+            <span style="color: var(--accent-gold)">★ 8.8</span>
+            <span>•</span>
+            <span style="color: var(--accent-primary); font-weight: 700">96 PTS</span>
+            <span>•</span>
+            <span>1080p BDRip HEVC FLAC</span>
+          </div>
+
+          <div style="margin-top: 24px;">
+            <div style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 8px;">Серии (Мгновенный стриминг)</div>
+            <div class="episodes-grid" id="episodes-grid"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+/*__APP_JS__*/
+  </script>
+</body>
+</html>
