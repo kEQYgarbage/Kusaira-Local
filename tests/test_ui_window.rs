@@ -8,6 +8,11 @@ fn test_bundle_ui_html_inlines_assets() {
     assert!(html.contains("Kusaira Local Anime"));
     assert!(html.contains("--bg-base: #0D0F12")); // from style.css
     assert!(html.contains("function callRust(")); // from app.js
+    assert!(html.contains("function openPlayerModal(")); // from player.js
+    assert!(html.contains("id=\"player-modal\""));
+    assert!(html.contains("player-buffering-overlay"));
+    assert!(html.contains("player-skip-prompt"));
+    assert!(html.contains("player-prefetch-toast"));
     assert!(!html.contains("/*__STYLE_CSS__*/"));
     assert!(!html.contains("/*__APP_JS__*/"));
 }
@@ -57,6 +62,14 @@ fn test_handle_ipc_get_details_dynamic() {
     let js = resp.unwrap();
     assert!(js.contains("setDetails("));
     assert!(js.contains("Дандадан"));
+}
+
+#[test]
+fn test_handle_ipc_get_details_non_preset_does_not_overwrite() {
+    // 54492 is Kusuriya no Hitorigoto (Монолог фармацевта)
+    let json_msg = r#"{"cmd": "get_details", "id": 54492}"#;
+    let resp = handle_ipc_command(json_msg);
+    assert!(resp.is_none());
 }
 
 #[test]
@@ -120,3 +133,22 @@ fn test_handle_ipc_config_and_gc() {
     let js = resp.unwrap();
     assert!(js.contains("setGcCacheBytes("));
 }
+
+#[test]
+fn test_handle_ipc_play_episode_and_progress() {
+    let play_msg = r#"{"cmd": "play_episode", "title": "Frieren", "episode": 2}"#;
+    let resp = handle_ipc_command(play_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert!(js.contains("onStreamReady("));
+    assert!(js.contains("127.0.0.1:8766/stream/ep2"));
+    assert!(js.contains("\"seeds\":142"));
+
+    let prog_msg = r#"{"cmd": "playback_progress", "episode": 2, "progress": 0.45}"#;
+    let resp = handle_ipc_command(prog_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert!(js.contains("onPlaybackProgressSynced("));
+    assert!(js.contains("\"prefetched\":3"));
+}
+

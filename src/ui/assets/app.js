@@ -102,27 +102,15 @@ function searchAnime(q) {
 }
 
 async function loadCategory(cat, btn) {
-  if (btn) {
-    document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-  }
-  const urls = {
-    ongoing: 'https://shikimori.io/api/animes?status=ongoing&order=popularity&limit=24',
-    ranked: 'https://shikimori.io/api/animes?order=ranked&limit=24',
-    popular: 'https://shikimori.io/api/animes?order=popularity&limit=24',
-    movie: 'https://shikimori.io/api/animes?kind=movie&order=popularity&limit=24',
-    genre_action: 'https://shikimori.io/api/animes?genre=1&order=popularity&limit=24',
-    genre_fantasy: 'https://shikimori.io/api/animes?genre=10&order=popularity&limit=24',
-    genre_romance: 'https://shikimori.io/api/animes?genre=22&order=popularity&limit=24',
-    genre_comedy: 'https://shikimori.io/api/animes?genre=4&order=popularity&limit=24',
-    genre_scifi: 'https://shikimori.io/api/animes?genre=24&order=popularity&limit=24',
-  };
-  const data = await cachedFetchJson(urls[cat] || urls.popular);
+  if (btn) { document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active')); btn.classList.add('active'); }
+  const g = { genre_action: 'genre=1', genre_fantasy: 'genre=10', genre_romance: 'genre=22', genre_comedy: 'genre=4', genre_scifi: 'genre=24', movie: 'kind=movie', ongoing: 'status=ongoing', ranked: 'order=ranked' };
+  const data = await cachedFetchJson(`https://shikimori.io/api/animes?${g[cat] || 'order=popularity'}&limit=24`);
   if (Array.isArray(data)) renderShelf('shelf-ongoing', data.map(mapShikiToCard));
 }
 
 async function openDetails(animeId) {
   const idNum = Number(animeId);
+  selectedReleaseTopicId = null;
   if (animeDatabase.has(idNum)) setDetails(animeDatabase.get(idNum));
   navTo('detail');
   callRust("get_details", { id: idNum });
@@ -143,26 +131,15 @@ function setDetails(anime) {
   if (!anime) return;
   currentAnime = anime;
   animeDatabase.set(Number(anime.id), anime);
-
-  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-  setEl('detail-title', anime.title || '');
-  setEl('detail-subtitle', anime.name || '');
-  setEl('detail-score-val', anime.score || '8.8');
-  setEl('detail-pts', `${anime.pts || 96} PTS`);
-  setEl('detail-active-pts', `${anime.pts || 96} PTS`);
-  setEl('detail-release', anime.release || '1080p BDRip HEVC FLAC');
-  setEl('detail-desc', anime.description || '');
-
-  const imgEl = document.getElementById('detail-poster-img');
-  if (imgEl) imgEl.src = anime.poster || '';
+  const s = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+  s('detail-title', anime.title || ''); s('detail-subtitle', anime.name || '');
+  s('detail-score-val', anime.score || '8.8'); s('detail-pts', `${anime.pts || 96} PTS`);
+  s('detail-active-pts', `${anime.pts || 96} PTS`); s('detail-release', anime.release || '1080p BDRip HEVC FLAC');
+  s('detail-desc', anime.description || '');
+  const img = document.getElementById('detail-poster-img'); if (img) img.src = anime.poster || '';
   updateDetailLibButton(anime.id);
-
   const total = anime.episodes || 12, grid = document.getElementById('episodes-grid');
-  if (grid) {
-    grid.innerHTML = Array.from({length: total}, (_, i) => i + 1).map(n => `
-      <button class="ep-btn ${n === currentEpisode ? 'active' : ''}" onclick="playEpisode(${n})">${n}</button>
-    `).join('');
-  }
+  if (grid) grid.innerHTML = Array.from({length: total}, (_, i) => i + 1).map(n => `<button class="ep-btn ${n === currentEpisode ? 'active' : ''}" onclick="playEpisode(${n})">${n}</button>`).join('');
   callRust("get_releases", { title: anime.title || anime.name });
 }
 
@@ -272,7 +249,14 @@ function closeReleasesModal() {
 
 function setReleases(releases) {
   currentReleases = releases || [];
-  if (releases && releases.length > 0 && !selectedReleaseTopicId) selectedReleaseTopicId = releases[0].topic_id;
+  if (releases && releases.length > 0) {
+    if (!selectedReleaseTopicId || !releases.some(r => r.topic_id === selectedReleaseTopicId)) {
+      selectedReleaseTopicId = releases[0].topic_id;
+      const relEl = document.getElementById('detail-release'), ptsPill = document.getElementById('detail-active-pts');
+      if (relEl) relEl.innerText = releases[0].title;
+      if (ptsPill) ptsPill.innerText = `${releases[0].pts} PTS`;
+    }
+  }
 }
 
 function renderReleasesList(releases) {
@@ -324,6 +308,11 @@ function hideOpeningBanner() {
 
 function triggerOpeningSkip() {
   hideOpeningBanner();
+  const prompt = document.getElementById('player-skip-prompt');
+  if (prompt) prompt.style.display = 'none';
+  const v = document.getElementById('player-video');
+  if (v && v.currentTime < 95) v.currentTime = 95;
+  if (fallbackTimer && simulatedTime < 95) simulatedTime = 95;
   callRust("player_action", { action: "skip_forward_85s" });
 }
 
@@ -356,27 +345,24 @@ function applyConfig(cfg) {
   if (!cfg) return;
   appConfig = { ...appConfig, ...cfg };
   previewTheme(appConfig.theme); previewDensity(appConfig.grid_density);
-  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-  const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
-  setVal('set-theme', appConfig.theme); setVal('set-density', appConfig.grid_density);
-  setVal('set-op-skip', appConfig.opening_skip_mode); setVal('set-seek-step', appConfig.seek_step_sec);
-  setVal('set-gc-max-gb', appConfig.gc_max_disk_gb); setVal('set-gc-policy', appConfig.gc_policy);
-  setVal('set-voiceover', appConfig.voiceover_priority); setVal('set-quality', appConfig.quality_preference);
-  setVal('set-hwaccel', appConfig.hw_accel); setCheck('set-autoplay', appConfig.autoplay_next);
-  setCheck('set-resume', appConfig.resume_playback); setCheck('set-skip-ed', appConfig.skip_endings);
-  setCheck('set-gc-exit', appConfig.gc_on_exit); setCheck('set-discord-rpc', appConfig.discord_rpc_enabled);
-  syncAllCustomSelects();
+  const sV = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  const sC = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+  sV('set-theme', appConfig.theme); sV('set-density', appConfig.grid_density); sV('set-op-skip', appConfig.opening_skip_mode);
+  sV('set-seek-step', appConfig.seek_step_sec); sV('set-gc-max-gb', appConfig.gc_max_disk_gb); sV('set-gc-policy', appConfig.gc_policy);
+  sV('set-voiceover', appConfig.voiceover_priority); sV('set-quality', appConfig.quality_preference); sV('set-hwaccel', appConfig.hw_accel);
+  sC('set-autoplay', appConfig.autoplay_next); sC('set-resume', appConfig.resume_playback); sC('set-skip-ed', appConfig.skip_endings);
+  sC('set-gc-exit', appConfig.gc_on_exit); sC('set-discord-rpc', appConfig.discord_rpc_enabled); syncAllCustomSelects();
 }
 
 function saveSettings() {
-  const getVal = id => document.getElementById(id)?.value, getBool = id => !!document.getElementById(id)?.checked;
-  appConfig.theme = getVal('set-theme'); appConfig.grid_density = getVal('set-density');
-  appConfig.opening_skip_mode = getVal('set-op-skip'); appConfig.seek_step_sec = Number(getVal('set-seek-step'));
-  appConfig.gc_max_disk_gb = Number(getVal('set-gc-max-gb')); appConfig.gc_policy = getVal('set-gc-policy');
-  appConfig.voiceover_priority = getVal('set-voiceover'); appConfig.quality_preference = getVal('set-quality');
-  appConfig.hw_accel = getVal('set-hwaccel'); appConfig.autoplay_next = getBool('set-autoplay');
-  appConfig.resume_playback = getBool('set-resume'); appConfig.skip_endings = getBool('set-skip-ed');
-  appConfig.gc_on_exit = getBool('set-gc-exit'); appConfig.discord_rpc_enabled = getBool('set-discord-rpc');
+  const gV = id => document.getElementById(id)?.value, gC = id => !!document.getElementById(id)?.checked;
+  Object.assign(appConfig, {
+    theme: gV('set-theme'), grid_density: gV('set-density'), opening_skip_mode: gV('set-op-skip'),
+    seek_step_sec: Number(gV('set-seek-step')), gc_max_disk_gb: Number(gV('set-gc-max-gb')), gc_policy: gV('set-gc-policy'),
+    voiceover_priority: gV('set-voiceover'), quality_preference: gV('set-quality'), hw_accel: gV('set-hwaccel'),
+    autoplay_next: gC('set-autoplay'), resume_playback: gC('set-resume'), skip_endings: gC('set-skip-ed'),
+    gc_on_exit: gC('set-gc-exit'), discord_rpc_enabled: gC('set-discord-rpc'),
+  });
   previewTheme(appConfig.theme); previewDensity(appConfig.grid_density);
   callRust("save_config", { config: appConfig }); closeSettingsModal();
 }
@@ -405,26 +391,6 @@ function formatBytes(bytes) {
 function closeModalOnBg(e, modalId) {
   if (e.target.id === modalId) document.getElementById(modalId).style.display = 'none';
 }
-
-/* Player & Episode */
-function playEpisode(ep) {
-  currentEpisode = ep;
-  document.querySelectorAll('.ep-btn').forEach((b, i) => b.classList.toggle('active', i + 1 === ep));
-  callRust("play_episode", { anime_id: currentAnime ? currentAnime.id : 0, episode: ep });
-  if (appConfig.discord_rpc_enabled && currentAnime) {
-    callRust("discord_update", { title: currentAnime.title, status: `Серия ${ep} (${appConfig.quality_preference} • ${appConfig.voiceover_priority})` });
-  }
-  checkOpeningAlert();
-}
-
-window.addEventListener('keydown', (e) => {
-  if (currentOpeningActive) {
-    if ((appConfig.opening_skip_mode === 'tab' && e.key === 'Tab') || (appConfig.opening_skip_mode === 'space' && e.code === 'Space')) {
-      e.preventDefault();
-      triggerOpeningSkip();
-    }
-  }
-});
 
 /* Custom Dark Dropdowns */
 function initCustomSelects() {
@@ -479,6 +445,7 @@ document.addEventListener('click', () => document.querySelectorAll('.custom-sele
 
 window.addEventListener('DOMContentLoaded', () => {
   initCustomSelects();
+  if (typeof initPlayerEvents === "function") initPlayerEvents();
   callRust("get_config");
   callRust("get_catalog");
   callRust("library_list");

@@ -16,6 +16,7 @@ pub struct IpcMessage {
     pub settings: Option<serde_json::Value>,
     pub config: Option<crate::config::AppConfig>,
     pub gc_mode: Option<String>,
+    pub progress: Option<f32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -107,14 +108,9 @@ pub fn handle_ipc_command(json_str: &str) -> Option<String> {
                 serde_json::Value::Number(n) => n.as_u64(),
                 serde_json::Value::String(s) => s.parse::<u64>().ok(),
                 _ => None,
-            }).unwrap_or(52991);
+            })?;
 
-            let card = crate::catalog::presets::find_preset_by_id(target_id)
-                .map(ClientCard::from)
-                .unwrap_or_else(|| {
-                    ClientCard::from(crate::catalog::presets::get_preset_ongoing()[0].clone())
-                });
-
+            let card = crate::catalog::presets::find_preset_by_id(target_id).map(ClientCard::from)?;
             let json = serde_json::to_string(&card).unwrap_or_default();
             Some(format!("setDetails({});", json))
         }
@@ -217,6 +213,33 @@ pub fn handle_ipc_command(json_str: &str) -> Option<String> {
             let episode = msg.status.unwrap_or_else(|| "Просмотр".to_string());
             let _ = crate::discord::DiscordRpc::default().set_activity(&title, &episode);
             None
+        }
+        "play_episode" => {
+            let ep = msg.episode.unwrap_or(1);
+            let title = msg.title.unwrap_or_else(|| "Anime".to_string());
+            let _ = crate::discord::DiscordRpc::default().set_activity(&title, &format!("Эпизод {}", ep));
+            let endpoint = crate::torrent::StreamEndpoint::default();
+            let stream_url = endpoint.stream_url(ep);
+            let payload = serde_json::json!({
+                "episode": ep,
+                "title": title,
+                "stream_url": stream_url,
+                "seeds": 142,
+                "speed_mbps": 18.5,
+                "status": "ready"
+            });
+            Some(format!("onStreamReady({});", serde_json::to_string(&payload).unwrap_or_default()))
+        }
+        "playback_progress" => {
+            let ep = msg.episode.unwrap_or(1);
+            let prog = msg.progress.unwrap_or(0.0);
+            let mut pipeline = crate::torrent::BingePipeline::new();
+            let prefetch_ep = pipeline.on_playback_progress(ep, prog);
+            let payload = serde_json::json!({
+                "episode": ep,
+                "prefetched": prefetch_ep
+            });
+            Some(format!("onPlaybackProgressSynced({});", serde_json::to_string(&payload).unwrap_or_default()))
         }
         "save_settings" => {
             // Backward-compatibility alias
