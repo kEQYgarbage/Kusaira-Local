@@ -62,8 +62,20 @@ function renderSearchResults(items) {
   renderShelf('shelf-search', items);
 }
 
+const shikiCache = new Map();
+async function cachedFetchJson(url) {
+  if (shikiCache.has(url)) return shikiCache.get(url);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    shikiCache.set(url, json);
+    return json;
+  } catch (_) { return null; }
+}
+
 function mapShikiToCard(s) {
-  const p = s.image && s.image.original ? `https://shikimori.io${s.image.original}` : (s.image && s.image.preview ? `https://shikimori.io${s.image.preview}` : 'https://placehold.co/300x420/1f232b/fff?text=Anime');
+  const p = s.image?.original ? `https://shikimori.io${s.image.original}` : (s.image?.preview ? `https://shikimori.io${s.image.preview}` : 'https://placehold.co/300x420/1f232b/fff?text=Anime');
   return {
     id: s.id, title: s.russian || s.name, name: s.name, poster: p, score: s.score || '8.0',
     pts: 95, episodes: s.episodes || (s.kind === 'movie' ? 1 : 12), release: '1080p BDRip HEVC FLAC',
@@ -83,15 +95,10 @@ function searchAnime(q) {
   if (local.length > 0) renderSearchResults(local);
   clearTimeout(searchTimer);
   searchTimer = setTimeout(async () => {
-    try {
-      const resp = await fetch(`https://shikimori.io/api/animes?search=${encodeURIComponent(query)}&limit=50&order=popularity`);
-      if (resp.ok) {
-        const data = await resp.json();
-        if (Array.isArray(data) && data.length > 0) { renderSearchResults(data.map(mapShikiToCard)); return; }
-      }
-    } catch (_) {}
+    const data = await cachedFetchJson(`https://shikimori.io/api/animes?search=${encodeURIComponent(query)}&limit=50&order=popularity`);
+    if (Array.isArray(data) && data.length > 0) { renderSearchResults(data.map(mapShikiToCard)); return; }
     callRust("search", { query });
-  }, 280);
+  }, 240);
 }
 
 async function loadCategory(cat, btn) {
@@ -110,13 +117,8 @@ async function loadCategory(cat, btn) {
     genre_comedy: 'https://shikimori.io/api/animes?genre=4&order=popularity&limit=24',
     genre_scifi: 'https://shikimori.io/api/animes?genre=24&order=popularity&limit=24',
   };
-  try {
-    const resp = await fetch(urls[cat] || urls.popular);
-    if (resp.ok) {
-      const data = await resp.json();
-      if (Array.isArray(data)) renderShelf('shelf-ongoing', data.map(mapShikiToCard));
-    }
-  } catch (_) {}
+  const data = await cachedFetchJson(urls[cat] || urls.popular);
+  if (Array.isArray(data)) renderShelf('shelf-ongoing', data.map(mapShikiToCard));
 }
 
 async function openDetails(animeId) {
@@ -125,18 +127,16 @@ async function openDetails(animeId) {
   navTo('detail');
   callRust("get_details", { id: idNum });
   callRust("get_related", { id: idNum });
-  try {
-    const [resDet, resRel] = await Promise.all([
-      fetch(`https://shikimori.io/api/animes/${idNum}`).then(r => r.ok ? r.json() : null),
-      fetch(`https://shikimori.io/api/animes/${idNum}/related`).then(r => r.ok ? r.json() : null)
-    ]);
-    if (resDet) {
-      const full = mapShikiToCard(resDet);
-      if (resDet.description) full.description = resDet.description;
-      setDetails(full);
-    }
-    if (resRel && resRel.length > 0) renderRelatedAnime(resRel);
-  } catch (_) {}
+  const [resDet, resRel] = await Promise.all([
+    cachedFetchJson(`https://shikimori.io/api/animes/${idNum}`),
+    cachedFetchJson(`https://shikimori.io/api/animes/${idNum}/related`)
+  ]);
+  if (resDet) {
+    const full = mapShikiToCard(resDet);
+    if (resDet.description) full.description = resDet.description;
+    setDetails(full);
+  }
+  if (Array.isArray(resRel) && resRel.length > 0) renderRelatedAnime(resRel);
 }
 
 function setDetails(anime) {
