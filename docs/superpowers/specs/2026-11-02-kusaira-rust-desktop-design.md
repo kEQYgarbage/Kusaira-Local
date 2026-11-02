@@ -118,19 +118,28 @@ The user requested a complete clean-slate rewrite of the application in **Rust**
   - `history`: `anime_id`, `anime_title`, `poster_url`, `episode`, `timestamp_sec`, `duration_sec`, `updated_at`.
   - `favorites`: `anime_id`, `anime_title`, `poster_url`, `added_at`.
 
-### 4.5 Torrent Streaming Pipeline (`src/torrent/engine.rs`)
-- Torrent download manager with sequential chunk priority.
-- Pipeline states: `Idle`, `Buffering(progress_percent)`, `Ready(file_path)`, `Completed`.
-- Sequential pre-buffer strategy:
-  1. Episode $N$: prioritize first 5% and last 2% of file chunks to parse container header.
-  2. Signal readiness to player as soon as buffer duration threshold is met (typically 1–2 minutes of bandwidth).
-  3. When playback reaches 40% of Episode $N$, trigger background download of Episode $N+1$.
+### 4.5 RuTracker Release Discovery & Cookie Extraction (`src/torrent/rutracker.rs`)
+- Automatically reads Firefox SQLite database (`~/.mozilla/firefox/*.default*/cookies.sqlite`) in Rust.
+- Extracts `bb_session` and `bb_data` cookies for zero-friction authenticated search on RuTracker.
+- Performs HTML search query for the anime Russian and Japanese titles in category 33 (Аниме).
+- Parses topics and feeds them into the PTS Quality Scorer.
 
-### 4.6 Native `libvlc` Player Engine (`src/player/vlc.rs`)
-- C-FFI to system `libvlc.so` (`/nix/store/...-vlc-3.0.24/lib/libvlc.so`).
-- Options: `--avcodec-hw=vaapi`, `--no-video-title-show`, `--no-osd`.
-- Exposes controls: `play(path)`, `pause()`, `seek(time_ms)`, `set_audio_track(id)`, `set_spu(subtitle_id)`.
-- Playback event loop emits state updates (`time`, `duration`, `state`) to the frontend.
+### 4.6 Torrent Streaming Engine (`src/torrent/engine.rs`)
+- Embeds `librqbit` session with sequential chunk prioritization.
+- Exposes an internal, local loopback HTTP byte-range stream on `127.0.0.1:<dynamic_port>/stream/{episode_index}` strictly for player consumption (no external browser exposure).
+- Handles byte-range requests and blocks socket reads on missing pieces, eliminating sparse-file zero-read crashes in VLC.
+- Sequential pre-buffer strategy:
+  1. Episode $N$: prioritize container header chunks and initial 2-minute buffer threshold.
+  2. Signal readiness to player as soon as HTTP stream starts responding.
+  3. When playback reaches 40% of Episode $N$, automatically trigger background sequential fetch of Episode $N+1$.
+
+### 4.7 Native Video Player & Window View Switcher (`src/player/vlc.rs`, `src/ui/window.rs`)
+- On Linux (GNOME Wayland/X11), the native window utilizes a GTK3 container holding two stacked views:
+  1. **Catalog & Details View**: Powered by `wry` (WebKitGTK) for responsive, rich card layouts, PTS badges, and shelves.
+  2. **Player View**: Powered by native GTK drawing widget bound directly to `libvlc` (`libvlc_media_player_set_xwindow` / Wayland sub-surface).
+- Hardware acceleration: VA-API (`--avcodec-hw=vaapi`, `--quiet`).
+- UI overlays: Custom dark header with "Назад в каталог", progress timeline, subtitle picker, and audio track switcher.
+- Audio track switching on the fly via `libvlc_audio_set_track` without resetting playback time.
 
 ---
 
