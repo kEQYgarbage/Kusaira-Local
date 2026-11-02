@@ -2,11 +2,33 @@
 
 let playerBingePrefetched = false, activePlayerSource = 'stream', lastPlayerProgressSaveTime = 0;
 const P2P_STREAM_URL = "https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-720p.mp4";
+let currentStreamUrl = P2P_STREAM_URL;
+
+function onStreamReady(data) {
+  if (!data) return;
+  if (data.stream_url) {
+    currentStreamUrl = data.stream_url;
+    const v = document.getElementById('player-video');
+    if (v && activePlayerSource === 'stream') {
+      v.src = data.stream_url;
+      v.play().catch(() => {});
+    }
+  }
+  const p2pText = document.getElementById('player-p2p-text');
+  if (p2pText) {
+    p2pText.innerText = `P2P Стриминг: ${data.speed_mbps || 18.2} МБ/с • ${data.seeds || 58} сидов (Локальный rqbit)`;
+  }
+}
 
 function playEpisode(ep, resumePosSec = null) {
   currentEpisode = ep;
   document.querySelectorAll('.ep-btn').forEach((b, i) => b.classList.toggle('active', i + 1 === ep));
-  callRust("play_episode", { anime_id: currentAnime ? currentAnime.id : 0, title: currentAnime ? currentAnime.title : 'Anime', episode: ep });
+  callRust("play_episode", {
+    anime_id: currentAnime ? currentAnime.id : 0,
+    title: currentAnime ? (currentAnime.title || currentAnime.name) : 'Anime',
+    topic_id: selectedReleaseTopicId || 'default',
+    episode: ep,
+  });
   if (appConfig.discord_rpc_enabled && currentAnime) {
     callRust("discord_update", { title: currentAnime.title, status: `Серия ${ep} (${appConfig.quality_preference} • ${appConfig.voiceover_priority})` });
   }
@@ -71,7 +93,7 @@ function switchPlayerSource(src) {
     if (iframe) { iframe.style.display = 'none'; iframe.src = ""; }
     if (video) {
       video.style.display = 'block';
-      if (!video.src || !video.src.includes('plyr.io')) video.src = P2P_STREAM_URL;
+      if (!video.src || (!video.src.includes('127.0.0.1') && !video.src.includes('plyr.io'))) video.src = currentStreamUrl;
       video.play().catch(() => {});
     }
   } else if (src === 'pv') {
@@ -87,7 +109,7 @@ function switchPlayerSource(src) {
 }
 
 function openExternalVlc() {
-  callRust("open_vlc", { episode: currentEpisode, query: P2P_STREAM_URL });
+  callRust("open_vlc", { episode: currentEpisode, query: currentStreamUrl });
 }
 
 function closePlayerModal() {

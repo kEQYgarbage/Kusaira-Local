@@ -62,3 +62,40 @@ fn test_stream_endpoint_url_formatting() {
     let endpoint = StreamEndpoint::new("127.0.0.1", 8999);
     assert_eq!(endpoint.stream_url(3), "http://127.0.0.1:8999/stream/ep3");
 }
+
+#[test]
+fn test_rqbit_binary_discovery() {
+    use kusaira::torrent::find_rqbit_binary;
+    let bin = find_rqbit_binary();
+    assert!(bin.is_some(), "rqbit binary must be discoverable on local system");
+    assert!(bin.unwrap().exists());
+}
+
+#[test]
+fn test_rqbit_file_mapping() {
+    use kusaira::torrent::rqbit::{find_episode_file_index, RqbitFile};
+
+    let files = vec![
+        RqbitFile { name: "poster.jpg".to_string(), length: 50_000 },
+        RqbitFile { name: "Anime_S01E01.mkv".to_string(), length: 1_200_000_000 },
+        RqbitFile { name: "Anime_S01E02.mkv".to_string(), length: 1_180_000_000 },
+        RqbitFile { name: "Anime_S01E03.mkv".to_string(), length: 1_250_000_000 },
+        RqbitFile { name: "subtitles.srt".to_string(), length: 25_000 },
+    ];
+
+    assert_eq!(find_episode_file_index(&files, 1), 1);
+    assert_eq!(find_episode_file_index(&files, 2), 2);
+    assert_eq!(find_episode_file_index(&files, 3), 3);
+}
+
+#[test]
+fn test_rqbit_stream_url_and_magnet() {
+    use kusaira::torrent::{get_magnet_for_topic, get_stream_url};
+
+    let stream_url = get_stream_url(3030, 0, 2);
+    assert_eq!(stream_url, "http://127.0.0.1:3030/torrents/0/stream/2");
+
+    let magnet = get_magnet_for_topic("6581290", "Frieren");
+    assert!(magnet.starts_with("magnet:?xt=urn:btih:"));
+    assert!(magnet.contains("tracker.opentrackr.org"));
+}

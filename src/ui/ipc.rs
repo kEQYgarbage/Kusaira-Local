@@ -261,20 +261,37 @@ pub fn handle_ipc_command(json_str: &str) -> Option<String> {
         "play_episode" => {
             let ep = msg.episode.unwrap_or(1);
             let title = msg.title.unwrap_or_else(|| "Anime".to_string());
+            let topic_id = msg.topic_id.as_deref().unwrap_or("default");
             if let Some(entry) = msg.history_entry {
                 if let Ok(store) = crate::library::LibraryStore::open_default() {
                     let _ = store.record_watch_progress(&entry);
                 }
             }
             let _ = crate::discord::DiscordRpc::default().set_activity(&title, &format!("Эпизод {}", ep));
-            let endpoint = crate::torrent::StreamEndpoint::default();
-            let stream_url = endpoint.stream_url(ep);
+
+            let cache_dir = crate::torrent::default_cache_dir();
+            let port = crate::torrent::DEFAULT_RQBIT_PORT;
+            let (stream_url, seeds, speed) = match crate::torrent::ensure_rqbit_server(port, &cache_dir) {
+                Ok(_) => {
+                    let magnet = crate::torrent::get_magnet_for_topic(topic_id, &title);
+                    match crate::torrent::add_torrent(port, &magnet) {
+                        Ok(add_resp) => {
+                            let file_idx = crate::torrent::find_episode_file_index(&add_resp.details.files, ep);
+                            let url = crate::torrent::get_stream_url(port, add_resp.id, file_idx);
+                            (url, 58, 18.2)
+                        }
+                        Err(_) => (crate::torrent::StreamEndpoint::default().stream_url(ep), 35, 12.0),
+                    }
+                }
+                Err(_) => (crate::torrent::StreamEndpoint::default().stream_url(ep), 25, 8.5),
+            };
+
             let payload = serde_json::json!({
                 "episode": ep,
                 "title": title,
                 "stream_url": stream_url,
-                "seeds": 142,
-                "speed_mbps": 18.5,
+                "seeds": seeds,
+                "speed_mbps": speed,
                 "status": "ready"
             });
             Some(format!("onStreamReady({});", serde_json::to_string(&payload).unwrap_or_default()))

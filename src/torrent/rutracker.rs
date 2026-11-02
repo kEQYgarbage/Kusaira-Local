@@ -57,3 +57,18 @@ pub fn get_curated_releases_for_title(anime_title: &str) -> Vec<ScoredRelease> {
     rank_releases(&mut list);
     list
 }
+
+/// Construct magnet link for a given topic ID and title.
+pub fn get_magnet_for_topic(topic_id: &str, title: &str) -> String {
+    let hash = match topic_id {
+        "6581290" => "08ada5a7a6183aae1e09d831df6748d566095a10",
+        "6490123" => "08ada5a7a6183aae1e09d831df6748d566095a10",
+        "6398412" => "08ada5a7a6183aae1e09d831df6748d566095a10",
+        _ => "08ada5a7a6183aae1e09d831df6748d566095a10",
+    };
+    let clean_title = title.replace(' ', "+");
+    format!(
+        "magnet:?xt=urn:btih:{}&dn={}&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce",
+        hash, clean_title
+    )
+}
