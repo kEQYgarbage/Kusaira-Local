@@ -159,4 +159,57 @@ fn test_handle_ipc_open_vlc() {
     assert!(resp.is_none());
 }
 
+#[test]
+fn test_handle_ipc_history() {
+    // Record history
+    let record_msg = r#"{
+        "cmd": "record_history",
+        "history_entry": {
+            "anime_id": 52991,
+            "episode": 3,
+            "title": "Sousou no Frieren",
+            "name": "Sousou no Frieren",
+            "poster": "https://shikimori.io/system/animes/original/52991.jpg",
+            "position_sec": 480.0,
+            "duration_sec": 1440.0,
+            "watched_at": 1730000000
+        }
+    }"#;
+    let resp = handle_ipc_command(record_msg);
+    assert!(resp.is_none());
+
+    // Get history
+    let get_history_msg = r#"{"cmd": "get_history"}"#;
+    let resp = handle_ipc_command(get_history_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert!(js.contains("renderWatchHistory("));
+    assert!(js.contains("Sousou no Frieren"));
+    assert!(js.contains("\"episode\":3"));
+
+    // Get anime history
+    let get_anime_hist_msg = r#"{"cmd": "get_anime_history", "id": 52991}"#;
+    let resp = handle_ipc_command(get_anime_hist_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert!(js.contains("setAnimeWatchedHistory("));
+    assert!(js.contains("\"watched_episodes\":[3]"));
+    assert!(js.contains("\"position_sec\":480.0"));
+
+    // Clear history
+    let clear_msg = r#"{"cmd": "clear_history"}"#;
+    let resp = handle_ipc_command(clear_msg);
+    assert!(resp.is_some());
+    let js = resp.unwrap();
+    assert_eq!(js, "renderWatchHistory([]);");
+
+    // UI bundling check
+    let html = bundle_ui_html();
+    assert!(html.contains("id=\"shelf-history-wrap\""));
+    assert!(html.contains("id=\"tab-lib-history\""));
+    assert!(html.contains("id=\"detail-resume-wrap\""));
+    assert!(html.contains("function renderWatchHistory("));
+    assert!(html.contains("function saveCurrentWatchProgress("));
+}
+
 

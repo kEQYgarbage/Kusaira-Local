@@ -9,10 +9,11 @@ pub const RAW_HTML: &str = include_str!("assets/index.html");
 pub const RAW_CSS: &str = include_str!("assets/style.css");
 pub const RAW_JS: &str = include_str!("assets/app.js");
 pub const RAW_PLAYER_JS: &str = include_str!("assets/player.js");
+pub const RAW_HISTORY_JS: &str = include_str!("assets/history.js");
 
 /// Produce composite HTML with bundled inlined stylesheets and scripts.
 pub fn bundle_ui_html() -> String {
-    let combined_js = format!("{}\n{}", RAW_JS, RAW_PLAYER_JS);
+    let combined_js = format!("{}\n{}\n{}", RAW_JS, RAW_PLAYER_JS, RAW_HISTORY_JS);
     RAW_HTML
         .replace("/*__STYLE_CSS__*/", RAW_CSS)
         .replace("/*__APP_JS__*/", &combined_js)

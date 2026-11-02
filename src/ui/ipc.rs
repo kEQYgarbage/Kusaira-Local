@@ -17,6 +17,7 @@ pub struct IpcMessage {
     pub config: Option<crate::config::AppConfig>,
     pub gc_mode: Option<String>,
     pub progress: Option<f32>,
+    pub history_entry: Option<crate::library::WatchHistoryEntry>,
 }
 
 #[derive(Debug, Serialize)]
@@ -180,6 +181,49 @@ pub fn handle_ipc_command(json_str: &str) -> Option<String> {
             }
             None
         }
+        "record_history" => {
+            if let Some(entry) = msg.history_entry {
+                if let Ok(store) = crate::library::LibraryStore::open_default() {
+                    let _ = store.record_watch_progress(&entry);
+                }
+            }
+            None
+        }
+        "get_history" => {
+            if let Ok(store) = crate::library::LibraryStore::open_default() {
+                if let Ok(history) = store.list_history(30) {
+                    let json = serde_json::to_string(&history).unwrap_or_default();
+                    return Some(format!("renderWatchHistory({});", json));
+                }
+            }
+            None
+        }
+        "get_anime_history" => {
+            let id = msg.id.and_then(|v| match v {
+                serde_json::Value::Number(n) => n.as_u64(),
+                serde_json::Value::String(s) => s.parse::<u64>().ok(),
+                _ => None,
+            });
+            if let Some(id_num) = id {
+                if let Ok(store) = crate::library::LibraryStore::open_default() {
+                    let eps = store.get_watched_episodes(id_num).unwrap_or_default();
+                    let last = store.get_last_watched(id_num).ok().flatten();
+                    let payload = serde_json::json!({
+                        "anime_id": id_num,
+                        "watched_episodes": eps,
+                        "last_watched": last,
+                    });
+                    return Some(format!("setAnimeWatchedHistory({});", serde_json::to_string(&payload).unwrap_or_default()));
+                }
+            }
+            None
+        }
+        "clear_history" => {
+            if let Ok(store) = crate::library::LibraryStore::open_default() {
+                let _ = store.clear_history();
+            }
+            Some("renderWatchHistory([]);".to_string())
+        }
         "get_config" => {
             let cfg = crate::config::ConfigStore::load();
             let json = serde_json::to_string(&cfg).unwrap_or_default();
@@ -217,6 +261,11 @@ pub fn handle_ipc_command(json_str: &str) -> Option<String> {
         "play_episode" => {
             let ep = msg.episode.unwrap_or(1);
             let title = msg.title.unwrap_or_else(|| "Anime".to_string());
+            if let Some(entry) = msg.history_entry {
+                if let Ok(store) = crate::library::LibraryStore::open_default() {
+                    let _ = store.record_watch_progress(&entry);
+                }
+            }
             let _ = crate::discord::DiscordRpc::default().set_activity(&title, &format!("Эпизод {}", ep));
             let endpoint = crate::torrent::StreamEndpoint::default();
             let stream_url = endpoint.stream_url(ep);

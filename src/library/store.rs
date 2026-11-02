@@ -19,6 +19,18 @@ pub struct LibraryEntry {
     pub updated_at: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatchHistoryEntry {
+    pub anime_id: u64,
+    pub episode: u32,
+    pub title: String,
+    pub name: String,
+    pub poster: String,
+    pub position_sec: f64,
+    pub duration_sec: f64,
+    pub watched_at: i64,
+}
+
 pub struct LibraryStore {
     conn: Connection,
 }
@@ -71,6 +83,20 @@ impl LibraryStore {
                 episodes INTEGER NOT NULL,
                 watched_episodes INTEGER NOT NULL DEFAULT 0,
                 updated_at INTEGER NOT NULL
+            );",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS watch_history (
+                anime_id INTEGER NOT NULL,
+                episode INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                name TEXT NOT NULL,
+                poster TEXT NOT NULL,
+                position_sec REAL NOT NULL DEFAULT 0.0,
+                duration_sec REAL NOT NULL DEFAULT 0.0,
+                watched_at INTEGER NOT NULL,
+                PRIMARY KEY (anime_id, episode)
             );",
             [],
         )?;
@@ -170,5 +196,114 @@ impl LibraryStore {
         }
 
         Ok(entries)
+    }
+
+    pub fn record_watch_progress(&self, entry: &WatchHistoryEntry) -> SqlResult<()> {
+        self.conn.execute(
+            "INSERT INTO watch_history (
+                anime_id, episode, title, name, poster, position_sec, duration_sec, watched_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            ON CONFLICT(anime_id, episode) DO UPDATE SET
+                position_sec = excluded.position_sec,
+                duration_sec = excluded.duration_sec,
+                watched_at = excluded.watched_at;",
+            params![
+                entry.anime_id as i64,
+                entry.episode,
+                entry.title,
+                entry.name,
+                entry.poster,
+                entry.position_sec,
+                entry.duration_sec,
+                entry.watched_at,
+            ],
+        )?;
+
+        // Auto-update or insert into user_library as watching with latest episode
+        let existing = self.get_entry(entry.anime_id)?;
+        let status = existing.as_ref().map(|e| e.status.clone()).unwrap_or_else(|| "watching".to_string());
+        let watched_eps = existing.as_ref().map(|e| e.watched_episodes.max(entry.episode)).unwrap_or(entry.episode);
+        let episodes = existing.as_ref().map(|e| e.episodes).unwrap_or(12);
+        let score = existing.as_ref().map(|e| e.score.clone()).unwrap_or_else(|| "8.5".to_string());
+        let pts = existing.as_ref().map(|e| e.pts).unwrap_or(95);
+
+        let lib_entry = LibraryEntry {
+            anime_id: entry.anime_id,
+            title: entry.title.clone(),
+            name: entry.name.clone(),
+            poster: entry.poster.clone(),
+            status,
+            score,
+            pts,
+            episodes,
+            watched_episodes: watched_eps,
+            updated_at: entry.watched_at,
+        };
+        self.save_entry(&lib_entry)?;
+
+        Ok(())
+    }
+
+    pub fn list_history(&self, limit: usize) -> SqlResult<Vec<WatchHistoryEntry>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT anime_id, episode, title, name, poster, position_sec, duration_sec, watched_at
+             FROM watch_history ORDER BY watched_at DESC LIMIT ?1;",
+        )?;
+        let rows = stmt.query(params![limit as i64])?;
+        let mut list = Vec::new();
+        let mut rows = rows;
+        while let Some(row) = rows.next()? {
+            list.push(WatchHistoryEntry {
+                anime_id: row.get::<_, i64>(0)? as u64,
+                episode: row.get(1)?,
+                title: row.get(2)?,
+                name: row.get(3)?,
+                poster: row.get(4)?,
+                position_sec: row.get(5)?,
+                duration_sec: row.get(6)?,
+                watched_at: row.get(7)?,
+            });
+        }
+        Ok(list)
+    }
+
+    pub fn get_last_watched(&self, anime_id: u64) -> SqlResult<Option<WatchHistoryEntry>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT anime_id, episode, title, name, poster, position_sec, duration_sec, watched_at
+             FROM watch_history WHERE anime_id = ?1 ORDER BY watched_at DESC LIMIT 1;",
+        )?;
+        let mut rows = stmt.query(params![anime_id as i64])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(WatchHistoryEntry {
+                anime_id: row.get::<_, i64>(0)? as u64,
+                episode: row.get(1)?,
+                title: row.get(2)?,
+                name: row.get(3)?,
+                poster: row.get(4)?,
+                position_sec: row.get(5)?,
+                duration_sec: row.get(6)?,
+                watched_at: row.get(7)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_watched_episodes(&self, anime_id: u64) -> SqlResult<Vec<u32>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT episode FROM watch_history WHERE anime_id = ?1 ORDER BY episode ASC;",
+        )?;
+        let rows = stmt.query(params![anime_id as i64])?;
+        let mut eps = Vec::new();
+        let mut rows = rows;
+        while let Some(row) = rows.next()? {
+            eps.push(row.get(0)?);
+        }
+        Ok(eps)
+    }
+
+    pub fn clear_history(&self) -> SqlResult<()> {
+        self.conn.execute("DELETE FROM watch_history;", [])?;
+        Ok(())
     }
 }

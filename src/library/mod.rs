@@ -2,4 +2,4 @@
 
 pub mod store;
 
-pub use store::{LibraryEntry, LibraryStore};
+pub use store::{LibraryEntry, LibraryStore, WatchHistoryEntry};

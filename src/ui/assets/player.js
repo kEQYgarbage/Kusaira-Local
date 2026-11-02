@@ -1,19 +1,19 @@
 // Kusaira Local Anime — Player & P2P Streaming Engine
 
-let playerBingePrefetched = false, activePlayerSource = 'stream';
+let playerBingePrefetched = false, activePlayerSource = 'stream', lastPlayerProgressSaveTime = 0;
 const P2P_STREAM_URL = "https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-720p.mp4";
 
-function playEpisode(ep) {
+function playEpisode(ep, resumePosSec = null) {
   currentEpisode = ep;
   document.querySelectorAll('.ep-btn').forEach((b, i) => b.classList.toggle('active', i + 1 === ep));
   callRust("play_episode", { anime_id: currentAnime ? currentAnime.id : 0, title: currentAnime ? currentAnime.title : 'Anime', episode: ep });
   if (appConfig.discord_rpc_enabled && currentAnime) {
     callRust("discord_update", { title: currentAnime.title, status: `Серия ${ep} (${appConfig.quality_preference} • ${appConfig.voiceover_priority})` });
   }
-  openPlayerModal(ep);
+  openPlayerModal(ep, resumePosSec);
 }
 
-function openPlayerModal(ep) {
+function openPlayerModal(ep, resumePosSec = null) {
   const modal = document.getElementById('player-modal');
   if (!modal) return;
   modal.style.display = 'flex';
@@ -35,7 +35,8 @@ function openPlayerModal(ep) {
 
   const video = document.getElementById('player-video');
   if (video) {
-    video.currentTime = 0;
+    const shouldResume = appConfig.resume_playback && typeof resumePosSec === 'number' && resumePosSec > 5;
+    video.currentTime = shouldResume ? resumePosSec : 0;
     let b = 0;
     const bInt = setInterval(() => {
       b += 30;
@@ -43,6 +44,9 @@ function openPlayerModal(ep) {
       if (b >= 100) {
         clearInterval(bInt);
         if (bufEl) bufEl.style.display = 'none';
+        if (shouldResume && Math.abs(video.currentTime - resumePosSec) > 1) {
+          video.currentTime = resumePosSec;
+        }
         video.play().catch(() => {
           video.muted = true;
           updateMuteIcon(true);
@@ -90,11 +94,17 @@ function closePlayerModal() {
   const modal = document.getElementById('player-modal');
   if (modal) modal.style.display = 'none';
   const video = document.getElementById('player-video'), iframe = document.getElementById('player-iframe');
-  if (video) video.pause();
+  if (video) {
+    if (typeof saveCurrentWatchProgress === 'function' && video.currentTime > 0) {
+      saveCurrentWatchProgress(video.currentTime, video.duration || 1440);
+    }
+    video.pause();
+  }
   if (iframe) { iframe.src = ""; iframe.style.display = 'none'; }
   hideOpeningBanner();
   const prompt = document.getElementById('player-skip-prompt');
   if (prompt) prompt.style.display = 'none';
+  callRust("get_history");
 }
 
 function togglePlay() {
@@ -163,6 +173,11 @@ function updatePlayerTime(current, total) {
     const toast = document.getElementById('player-prefetch-toast');
     if (toast) { toast.style.display = 'flex'; setTimeout(() => toast.style.display = 'none', 4000); }
     callRust("playback_progress", { episode: currentEpisode, progress: 0.42 });
+  }
+
+  if (typeof saveCurrentWatchProgress === 'function' && Math.abs(current - lastPlayerProgressSaveTime) >= 8) {
+    lastPlayerProgressSaveTime = current;
+    saveCurrentWatchProgress(current, total);
   }
 }
 

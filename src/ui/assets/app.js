@@ -115,6 +115,7 @@ async function openDetails(animeId) {
   navTo('detail');
   callRust("get_details", { id: idNum });
   callRust("get_related", { id: idNum });
+  callRust("get_anime_history", { id: idNum });
   const [resDet, resRel] = await Promise.all([
     cachedFetchJson(`https://shikimori.io/api/animes/${idNum}`),
     cachedFetchJson(`https://shikimori.io/api/animes/${idNum}/related`)
@@ -142,6 +143,7 @@ function setDetails(anime) {
   const total = anime.episodes || 12, grid = document.getElementById('episodes-grid');
   if (grid) grid.innerHTML = Array.from({length: total}, (_, i) => i + 1).map(n => `<button class="ep-btn ${n === currentEpisode ? 'active' : ''}" onclick="playEpisode(${n})">${n}</button>`).join('');
   callRust("get_releases", { title: anime.title || anime.name });
+  callRust("get_anime_history", { id: Number(anime.id) });
 }
 
 /* Related Anime (Franchise) */
@@ -210,7 +212,12 @@ function filterLibrary(status) {
   document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('active'));
   const btn = document.getElementById(`tab-lib-${status}`);
   if (btn) btn.classList.add('active');
-  renderLibraryGrid();
+  if (status === 'history') {
+    if (typeof renderHistoryLibraryTab === 'function') renderHistoryLibraryTab();
+    callRust("get_history");
+  } else {
+    renderLibraryGrid();
+  }
 }
 
 function renderLibraryGrid() {
@@ -449,6 +456,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (typeof initPlayerEvents === "function") initPlayerEvents();
   callRust("get_config");
   callRust("get_catalog");
+  callRust("get_history");
   callRust("library_list");
   loadCategory('ongoing', document.querySelector('.cat-pill.active'));
 });
