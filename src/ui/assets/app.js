@@ -44,7 +44,7 @@ function renderShelf(containerId, items) {
         <span class="poster-badge">1080p • <span class="pts-badge">${a.pts || 95} PTS</span></span>
       </div>
       <div class="card-title">${a.title}</div>
-      <div class="card-meta">★ ${a.score || '8.5'} • ${a.episodes || 12} эп.</div>
+      <div class="card-meta"><svg class="icon star-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> ${a.score || '8.5'} • ${a.episodes || 12} эп.</div>
     </div>
   `).join('');
 }
@@ -62,24 +62,81 @@ function renderSearchResults(items) {
   renderShelf('shelf-search', items);
 }
 
+function mapShikiToCard(s) {
+  const p = s.image && s.image.original ? `https://shikimori.io${s.image.original}` : (s.image && s.image.preview ? `https://shikimori.io${s.image.preview}` : 'https://placehold.co/300x420/1f232b/fff?text=Anime');
+  return {
+    id: s.id, title: s.russian || s.name, name: s.name, poster: p, score: s.score || '8.0',
+    pts: 95, episodes: s.episodes || (s.kind === 'movie' ? 1 : 12), release: '1080p BDRip HEVC FLAC',
+    description: `Аниме: ${s.russian || s.name}. Рейтинг: ${s.score || '—'}. Тип: ${(s.kind || 'TV').toUpperCase()}.`,
+  };
+}
+
+let searchTimer = null;
 function searchAnime(q) {
-  const query = q.trim().toLowerCase(), wrap = document.getElementById('shelf-search-wrap'), shelves = document.getElementById('catalog-shelves');
+  const query = q.trim(), wrap = document.getElementById('shelf-search-wrap'), shelves = document.getElementById('catalog-shelves');
   if (!query) {
     if (wrap) wrap.style.display = 'none';
     if (shelves) shelves.style.display = 'block';
     return;
   }
-  const local = Array.from(animeDatabase.values()).filter(a => (a.title && a.title.toLowerCase().includes(query)) || (a.name && a.name.toLowerCase().includes(query)));
-  renderSearchResults(local);
-  callRust("search", { query: q });
+  const local = Array.from(animeDatabase.values()).filter(a => (a.title && a.title.toLowerCase().includes(query.toLowerCase())) || (a.name && a.name.toLowerCase().includes(query.toLowerCase())));
+  if (local.length > 0) renderSearchResults(local);
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(async () => {
+    try {
+      const resp = await fetch(`https://shikimori.io/api/animes?search=${encodeURIComponent(query)}&limit=50&order=popularity`);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (Array.isArray(data) && data.length > 0) { renderSearchResults(data.map(mapShikiToCard)); return; }
+      }
+    } catch (_) {}
+    callRust("search", { query });
+  }, 280);
 }
 
-function openDetails(animeId) {
+async function loadCategory(cat, btn) {
+  if (btn) {
+    document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  const urls = {
+    ongoing: 'https://shikimori.io/api/animes?status=ongoing&order=popularity&limit=24',
+    ranked: 'https://shikimori.io/api/animes?order=ranked&limit=24',
+    popular: 'https://shikimori.io/api/animes?order=popularity&limit=24',
+    movie: 'https://shikimori.io/api/animes?kind=movie&order=popularity&limit=24',
+    genre_action: 'https://shikimori.io/api/animes?genre=1&order=popularity&limit=24',
+    genre_fantasy: 'https://shikimori.io/api/animes?genre=10&order=popularity&limit=24',
+    genre_romance: 'https://shikimori.io/api/animes?genre=22&order=popularity&limit=24',
+    genre_comedy: 'https://shikimori.io/api/animes?genre=4&order=popularity&limit=24',
+    genre_scifi: 'https://shikimori.io/api/animes?genre=24&order=popularity&limit=24',
+  };
+  try {
+    const resp = await fetch(urls[cat] || urls.popular);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data)) renderShelf('shelf-ongoing', data.map(mapShikiToCard));
+    }
+  } catch (_) {}
+}
+
+async function openDetails(animeId) {
   const idNum = Number(animeId);
   if (animeDatabase.has(idNum)) setDetails(animeDatabase.get(idNum));
+  navTo('detail');
   callRust("get_details", { id: idNum });
   callRust("get_related", { id: idNum });
-  navTo('detail');
+  try {
+    const [resDet, resRel] = await Promise.all([
+      fetch(`https://shikimori.io/api/animes/${idNum}`).then(r => r.ok ? r.json() : null),
+      fetch(`https://shikimori.io/api/animes/${idNum}/related`).then(r => r.ok ? r.json() : null)
+    ]);
+    if (resDet) {
+      const full = mapShikiToCard(resDet);
+      if (resDet.description) full.description = resDet.description;
+      setDetails(full);
+    }
+    if (resRel && resRel.length > 0) renderRelatedAnime(resRel);
+  } catch (_) {}
 }
 
 function setDetails(anime) {
@@ -90,7 +147,7 @@ function setDetails(anime) {
   const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
   setEl('detail-title', anime.title || '');
   setEl('detail-subtitle', anime.name || '');
-  setEl('detail-score', `★ ${anime.score || '8.8'}`);
+  setEl('detail-score-val', anime.score || '8.8');
   setEl('detail-pts', `${anime.pts || 96} PTS`);
   setEl('detail-active-pts', `${anime.pts || 96} PTS`);
   setEl('detail-release', anime.release || '1080p BDRip HEVC FLAC');
@@ -140,13 +197,13 @@ function toggleLibDropdown() {
 function updateDetailLibButton(animeId) {
   const entry = userLibrary.get(Number(animeId)), icon = document.getElementById('detail-lib-icon'), text = document.getElementById('detail-lib-text');
   if (!entry) {
-    if (icon) icon.innerText = '➕';
+    if (icon) icon.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
     if (text) text.innerText = 'В библиотеку';
     return;
   }
-  const map = { watching: '👁️ Смотрю', planned: '⏳ В планах', completed: '✅ Просмотрено', favorite: '⭐ В избранном' };
+  const map = { watching: 'Смотрю', planned: 'В планах', completed: 'Просмотрено', favorite: 'В избранном' };
   if (text) text.innerText = map[entry.status] || 'В библиотеке';
-  if (icon) icon.innerText = '✓';
+  if (icon) icon.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 }
 
 function setAnimeStatus(status) {
@@ -188,7 +245,7 @@ function renderLibraryGrid() {
     return;
   }
   if (empty) empty.style.display = 'none';
-  const labelMap = { watching: '👁️ Смотрю', planned: '⏳ В планах', completed: '✅ Просмотрено', favorite: '⭐ Избранное' };
+  const labelMap = { watching: 'Смотрю', planned: 'В планах', completed: 'Просмотрено', favorite: 'Избранное' };
   container.innerHTML = filtered.map(a => `
     <div class="card" onclick="openDetails(${a.anime_id})">
       <div class="card-poster">
@@ -196,7 +253,7 @@ function renderLibraryGrid() {
         <span class="poster-badge">${labelMap[a.status] || a.status}</span>
       </div>
       <div class="card-title">${a.title}</div>
-      <div class="card-meta">★ ${a.score} • ${a.episodes} эп.</div>
+      <div class="card-meta"><svg class="icon star-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> ${a.score} • ${a.episodes} эп.</div>
     </div>
   `).join('');
 }
@@ -232,7 +289,7 @@ function renderReleasesList(releases) {
         <div class="release-meta"><span style="color: var(--accent-primary); font-weight: 700;">${r.pts} PTS</span> • <span>${r.size_human || '12 GB'}</span> • <span>${r.seeders} сидов</span></div>
       </div>
       <button class="btn-choose-release" onclick="chooseRelease('${r.topic_id}', ${r.pts}, '${(r.title || '').replace(/'/g, "\\'")}')">
-        ${selectedReleaseTopicId === r.topic_id ? '✓ Активен' : 'Выбрать'}
+        ${selectedReleaseTopicId === r.topic_id ? '<svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg> Активен' : 'Выбрать'}
       </button>
     </div>
   `).join('');
@@ -278,6 +335,7 @@ function previewDensity(d) { document.body.setAttribute('data-density', d); }
 function openSettingsModal() {
   const modal = document.getElementById('settings-modal');
   if (modal) modal.style.display = 'flex';
+  syncAllCustomSelects();
   callRust("get_gc_stats");
 }
 
@@ -297,47 +355,30 @@ function switchSettingsTab(tab) {
 function applyConfig(cfg) {
   if (!cfg) return;
   appConfig = { ...appConfig, ...cfg };
-  previewTheme(appConfig.theme);
-  previewDensity(appConfig.grid_density);
+  previewTheme(appConfig.theme); previewDensity(appConfig.grid_density);
   const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-  setVal('set-theme', appConfig.theme);
-  setVal('set-density', appConfig.grid_density);
-  setVal('set-op-skip', appConfig.opening_skip_mode);
-  setVal('set-seek-step', appConfig.seek_step_sec);
-  setVal('set-gc-max-gb', appConfig.gc_max_disk_gb);
-  setVal('set-gc-policy', appConfig.gc_policy);
-  setVal('set-voiceover', appConfig.voiceover_priority);
-  setVal('set-quality', appConfig.quality_preference);
-  setVal('set-hwaccel', appConfig.hw_accel);
-
   const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
-  setCheck('set-autoplay', appConfig.autoplay_next);
-  setCheck('set-resume', appConfig.resume_playback);
-  setCheck('set-skip-ed', appConfig.skip_endings);
-  setCheck('set-gc-exit', appConfig.gc_on_exit);
-  setCheck('set-discord-rpc', appConfig.discord_rpc_enabled);
+  setVal('set-theme', appConfig.theme); setVal('set-density', appConfig.grid_density);
+  setVal('set-op-skip', appConfig.opening_skip_mode); setVal('set-seek-step', appConfig.seek_step_sec);
+  setVal('set-gc-max-gb', appConfig.gc_max_disk_gb); setVal('set-gc-policy', appConfig.gc_policy);
+  setVal('set-voiceover', appConfig.voiceover_priority); setVal('set-quality', appConfig.quality_preference);
+  setVal('set-hwaccel', appConfig.hw_accel); setCheck('set-autoplay', appConfig.autoplay_next);
+  setCheck('set-resume', appConfig.resume_playback); setCheck('set-skip-ed', appConfig.skip_endings);
+  setCheck('set-gc-exit', appConfig.gc_on_exit); setCheck('set-discord-rpc', appConfig.discord_rpc_enabled);
+  syncAllCustomSelects();
 }
 
 function saveSettings() {
-  appConfig.theme = document.getElementById('set-theme').value;
-  appConfig.grid_density = document.getElementById('set-density').value;
-  appConfig.opening_skip_mode = document.getElementById('set-op-skip').value;
-  appConfig.seek_step_sec = Number(document.getElementById('set-seek-step').value);
-  appConfig.gc_max_disk_gb = Number(document.getElementById('set-gc-max-gb').value);
-  appConfig.gc_policy = document.getElementById('set-gc-policy').value;
-  appConfig.voiceover_priority = document.getElementById('set-voiceover').value;
-  appConfig.quality_preference = document.getElementById('set-quality').value;
-  appConfig.hw_accel = document.getElementById('set-hwaccel').value;
-  appConfig.autoplay_next = document.getElementById('set-autoplay').checked;
-  appConfig.resume_playback = document.getElementById('set-resume').checked;
-  appConfig.skip_endings = document.getElementById('set-skip-ed').checked;
-  appConfig.gc_on_exit = document.getElementById('set-gc-exit').checked;
-  appConfig.discord_rpc_enabled = document.getElementById('set-discord-rpc').checked;
-
-  previewTheme(appConfig.theme);
-  previewDensity(appConfig.grid_density);
-  callRust("save_config", { config: appConfig });
-  closeSettingsModal();
+  const getVal = id => document.getElementById(id)?.value, getBool = id => !!document.getElementById(id)?.checked;
+  appConfig.theme = getVal('set-theme'); appConfig.grid_density = getVal('set-density');
+  appConfig.opening_skip_mode = getVal('set-op-skip'); appConfig.seek_step_sec = Number(getVal('set-seek-step'));
+  appConfig.gc_max_disk_gb = Number(getVal('set-gc-max-gb')); appConfig.gc_policy = getVal('set-gc-policy');
+  appConfig.voiceover_priority = getVal('set-voiceover'); appConfig.quality_preference = getVal('set-quality');
+  appConfig.hw_accel = getVal('set-hwaccel'); appConfig.autoplay_next = getBool('set-autoplay');
+  appConfig.resume_playback = getBool('set-resume'); appConfig.skip_endings = getBool('set-skip-ed');
+  appConfig.gc_on_exit = getBool('set-gc-exit'); appConfig.discord_rpc_enabled = getBool('set-discord-rpc');
+  previewTheme(appConfig.theme); previewDensity(appConfig.grid_density);
+  callRust("save_config", { config: appConfig }); closeSettingsModal();
 }
 
 /* GC Handlers */
@@ -385,8 +426,61 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+/* Custom Dark Dropdowns */
+function initCustomSelects() {
+  document.querySelectorAll('.setting-select').forEach(sel => {
+    if (sel.nextElementSibling?.classList.contains('custom-select-wrap')) return;
+    sel.style.display = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'custom-select-wrap';
+    wrap.dataset.for = sel.id;
+    wrap.innerHTML = `<button type="button" class="custom-select-trigger"><span class="custom-select-text"></span><svg class="icon custom-select-arrow" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg></button><div class="custom-select-menu"></div>`;
+    const trigger = wrap.querySelector('.custom-select-trigger'), menu = wrap.querySelector('.custom-select-menu');
+    Array.from(sel.options).forEach(opt => {
+      const item = document.createElement('div');
+      item.className = 'custom-select-opt';
+      item.dataset.value = opt.value;
+      item.innerText = opt.text;
+      item.onclick = (e) => {
+        e.stopPropagation();
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event('change'));
+        updateCustomSelect(wrap, sel);
+        wrap.classList.remove('open');
+      };
+      menu.appendChild(item);
+    });
+    trigger.onclick = (e) => {
+      e.stopPropagation();
+      const open = wrap.classList.contains('open');
+      document.querySelectorAll('.custom-select-wrap.open').forEach(w => w.classList.remove('open'));
+      if (!open) wrap.classList.add('open');
+    };
+    sel.parentNode.insertBefore(wrap, sel.nextSibling);
+    updateCustomSelect(wrap, sel);
+  });
+}
+
+function updateCustomSelect(wrap, sel) {
+  const currentVal = sel.value, selOpt = Array.from(sel.options).find(o => o.value == currentVal) || sel.options[0];
+  const textEl = wrap.querySelector('.custom-select-text');
+  if (textEl && selOpt) textEl.innerText = selOpt.text;
+  wrap.querySelectorAll('.custom-select-opt').forEach(opt => opt.classList.toggle('selected', opt.dataset.value == currentVal));
+}
+
+function syncAllCustomSelects() {
+  document.querySelectorAll('.custom-select-wrap').forEach(wrap => {
+    const sel = document.getElementById(wrap.dataset.for);
+    if (sel) updateCustomSelect(wrap, sel);
+  });
+}
+
+document.addEventListener('click', () => document.querySelectorAll('.custom-select-wrap.open').forEach(w => w.classList.remove('open')));
+
 window.addEventListener('DOMContentLoaded', () => {
+  initCustomSelects();
   callRust("get_config");
   callRust("get_catalog");
   callRust("library_list");
+  loadCategory('ongoing', document.querySelector('.cat-pill.active'));
 });
