@@ -1,0 +1,28 @@
+[package]
+name = "kusaira"
+version = "0.1.0"
+edition = "2021"
+authors = ["keqqyrr"]
+description = "Kusaira Local Anime — нативное десктопное приложение для просмотра аниме в наивысшем качестве"
+
+[lib]
+name = "kusaira"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kusaira"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1.40", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+regex = "1.10"
+libloading = "0.8"
+tao = "0.30"
+wry = "0.47"
+
+[dev-dependencies]
+tempfile = "3.12"
