@@ -7,3 +7,4 @@ pub const APP_DESCRIPTION: &str = "Kusaira Local Anime — нативное де
 
 pub mod catalog;
 pub mod scorer;
+pub mod torrent;
