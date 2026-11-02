@@ -1,6 +1,7 @@
-// Kusaira Local Anime — Player & P2P Torrent Streaming Engine
+// Kusaira Local Anime — Player & P2P Streaming Engine
 
-let playerBingePrefetched = false, simulatedTime = 0, fallbackTimer = null;
+let playerBingePrefetched = false, activePlayerSource = 'stream';
+const P2P_STREAM_URL = "https://cdn.plyr.io/static/demo/View_From_A_Blue_Moon_Trailer-720p.mp4";
 
 function playEpisode(ep) {
   currentEpisode = ep;
@@ -17,65 +18,115 @@ function openPlayerModal(ep) {
   if (!modal) return;
   modal.style.display = 'flex';
   playerBingePrefetched = false;
+
   const s = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
   s('player-title', currentAnime ? (currentAnime.title || currentAnime.name) : 'Аниме');
   s('player-ep-pill', `Серия ${ep}`);
   s('player-p2p-text', `P2P Стриминг: ${(17 + (ep % 4)).toFixed(1)} МБ/с • ${135 + ep * 3} сидов (RuTracker)`);
+
+  const pvBtn = document.getElementById('btn-src-pv');
+  if (pvBtn) pvBtn.style.display = (currentAnime?.videos && currentAnime.videos.length > 0) ? 'inline-flex' : 'none';
+
+  switchPlayerSource('stream');
+
   const bufEl = document.getElementById('player-buffering'), fill = document.getElementById('player-buffer-fill');
   if (bufEl) bufEl.style.display = 'flex';
   if (fill) fill.style.width = '0%';
+
   const video = document.getElementById('player-video');
   if (video) {
     video.currentTime = 0;
     let b = 0;
     const bInt = setInterval(() => {
-      b += 25;
+      b += 30;
       if (fill) fill.style.width = `${b}%`;
       if (b >= 100) {
         clearInterval(bInt);
         if (bufEl) bufEl.style.display = 'none';
-        video.play().catch(() => startCanvasSimulation());
+        video.play().catch(() => {
+          video.muted = true;
+          updateMuteIcon(true);
+          video.play().catch(() => {});
+        });
       }
-    }, 120);
+    }, 100);
   } else {
-    setTimeout(() => { if (bufEl) bufEl.style.display = 'none'; startCanvasSimulation(); }, 500);
+    setTimeout(() => { if (bufEl) bufEl.style.display = 'none'; }, 400);
   }
   checkOpeningAlert();
+}
+
+function switchPlayerSource(src) {
+  activePlayerSource = src;
+  document.querySelectorAll('.player-src-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`btn-src-${src}`);
+  if (btn) btn.classList.add('active');
+
+  const video = document.getElementById('player-video'), iframe = document.getElementById('player-iframe');
+  if (src === 'stream') {
+    if (iframe) { iframe.style.display = 'none'; iframe.src = ""; }
+    if (video) {
+      video.style.display = 'block';
+      if (!video.src || !video.src.includes('plyr.io')) video.src = P2P_STREAM_URL;
+      video.play().catch(() => {});
+    }
+  } else if (src === 'pv') {
+    if (video) { video.pause(); video.style.display = 'none'; }
+    if (iframe && currentAnime?.videos?.length) {
+      iframe.style.display = 'block';
+      let raw = currentAnime.videos[0].player_url || currentAnime.videos[0].url || '';
+      if (raw.includes('youtu.be/')) raw = `https://www.youtube-nocookie.com/embed/${raw.split('youtu.be/')[1].split('?')[0]}?autoplay=1`;
+      else if (raw.includes('youtube.com/embed/')) raw = raw.replace('http://', 'https://').replace('youtube.com', 'youtube-nocookie.com') + '?autoplay=1';
+      iframe.src = raw;
+    }
+  }
+}
+
+function openExternalVlc() {
+  callRust("open_vlc", { episode: currentEpisode, query: P2P_STREAM_URL });
 }
 
 function closePlayerModal() {
   const modal = document.getElementById('player-modal');
   if (modal) modal.style.display = 'none';
-  const video = document.getElementById('player-video');
+  const video = document.getElementById('player-video'), iframe = document.getElementById('player-iframe');
   if (video) video.pause();
-  if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; }
+  if (iframe) { iframe.src = ""; iframe.style.display = 'none'; }
   hideOpeningBanner();
   const prompt = document.getElementById('player-skip-prompt');
   if (prompt) prompt.style.display = 'none';
 }
 
 function togglePlay() {
-  const video = document.getElementById('player-video'), icon = document.getElementById('player-play-icon');
+  const video = document.getElementById('player-video');
   if (!video) return;
-  if (video.paused) {
-    video.play().catch(() => {});
-    if (icon) icon.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
-  } else {
-    video.pause();
-    if (icon) icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
-  }
+  if (video.paused) video.play().catch(() => {});
+  else video.pause();
+}
+
+function toggleMute() {
+  const video = document.getElementById('player-video');
+  if (!video) return;
+  video.muted = !video.muted;
+  updateMuteIcon(video.muted);
+}
+
+function updateMuteIcon(isMuted) {
+  const icon = document.getElementById('player-mute-icon');
+  if (!icon) return;
+  icon.innerHTML = isMuted
+    ? '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>'
+    : '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>';
 }
 
 function seekRelative(sec) {
   const video = document.getElementById('player-video');
   if (video && video.duration) video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + sec));
-  else if (fallbackTimer) simulatedTime = Math.max(0, simulatedTime + sec);
 }
 
 function onSeekInput(pct) {
   const video = document.getElementById('player-video');
   if (video && video.duration) video.currentTime = (pct / 100) * video.duration;
-  else if (fallbackTimer) simulatedTime = (pct / 100) * 1458;
 }
 
 function playNextEpisode() {
@@ -94,36 +145,19 @@ function formatPlayerTime(sec) {
   return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
-function startCanvasSimulation() {
-  const canvas = document.getElementById('player-fallback-canvas');
-  if (!canvas) return;
-  canvas.style.display = 'block';
-  const ctx = canvas.getContext('2d');
-  canvas.width = 1280; canvas.height = 720;
-  if (fallbackTimer) clearInterval(fallbackTimer);
-  simulatedTime = 0;
-  fallbackTimer = setInterval(() => {
-    simulatedTime += 1;
-    ctx.fillStyle = '#0a0d14'; ctx.fillRect(0, 0, 1280, 720);
-    ctx.fillStyle = '#2AABEE'; ctx.font = 'bold 36px sans-serif';
-    ctx.fillText(`${currentAnime?.title || 'Kusaira Local'} — Эпизод ${currentEpisode}`, 80, 320);
-    ctx.fillStyle = '#8B949E'; ctx.font = '22px sans-serif';
-    ctx.fillText(`P2P Chunks Stream • 1080p BDRip • FLAC • Время: ${formatPlayerTime(simulatedTime)}`, 80, 380);
-    updatePlayerTime(simulatedTime, 1458);
-  }, 1000);
-}
-
 function updatePlayerTime(current, total) {
   const timeEl = document.getElementById('player-time-display'), seek = document.getElementById('player-seek'), track = document.getElementById('player-buffered-track');
   if (timeEl) timeEl.innerText = `${formatPlayerTime(current)} / ${formatPlayerTime(total)}`;
   const pct = (current / total) * 100;
   if (seek) seek.value = pct;
   if (track) track.style.width = `${Math.min(100, pct + 35)}%`;
+
   const prompt = document.getElementById('player-skip-prompt');
-  if (current >= 15 && current <= 100) {
+  if (current >= 15 && current <= 95) {
     if (appConfig.opening_skip_mode === 'auto') triggerOpeningSkip();
     else if (appConfig.opening_skip_mode !== 'off' && prompt) prompt.style.display = 'flex';
   } else if (prompt) prompt.style.display = 'none';
+
   if (pct >= 40 && !playerBingePrefetched) {
     playerBingePrefetched = true;
     const toast = document.getElementById('player-prefetch-toast');
@@ -132,12 +166,28 @@ function updatePlayerTime(current, total) {
   }
 }
 
+function triggerOpeningSkip() {
+  hideOpeningBanner();
+  const prompt = document.getElementById('player-skip-prompt');
+  if (prompt) prompt.style.display = 'none';
+  const v = document.getElementById('player-video');
+  if (v && v.currentTime < 95) v.currentTime = 95;
+  callRust("player_action", { action: "skip_forward_85s" });
+}
+
 function initPlayerEvents() {
   const v = document.getElementById('player-video');
   if (!v) return;
   v.ontimeupdate = () => updatePlayerTime(v.currentTime, v.duration || 1458);
   v.onended = () => { if (appConfig.autoplay_next) playNextEpisode(); };
-  v.onerror = () => startCanvasSimulation();
+  v.onplay = () => {
+    const icon = document.getElementById('player-play-icon');
+    if (icon) icon.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+  };
+  v.onpause = () => {
+    const icon = document.getElementById('player-play-icon');
+    if (icon) icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+  };
 }
 
 window.addEventListener('keydown', (e) => {
@@ -148,6 +198,7 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault(); triggerOpeningSkip(); return;
     }
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+    else if (e.key === 'm' || e.key === 'M') { e.preventDefault(); toggleMute(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); seekRelative(-10); }
     else if (e.key === 'ArrowRight') { e.preventDefault(); seekRelative(10); }
     else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFullscreen(); }

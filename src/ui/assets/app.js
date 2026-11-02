@@ -122,6 +122,7 @@ async function openDetails(animeId) {
   if (resDet) {
     const full = mapShikiToCard(resDet);
     if (resDet.description) full.description = resDet.description;
+    if (resDet.videos) full.videos = resDet.videos;
     setDetails(full);
   }
   if (Array.isArray(resRel) && resRel.length > 0) renderRelatedAnime(resRel);

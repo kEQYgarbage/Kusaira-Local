@@ -420,4 +420,17 @@ video#player-video { width: 100%; height: 100%; object-fit: contain; }
 }
 .player-btn:hover { color: var(--accent-primary); }
 .player-time-text { font-size: 0.82rem; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-left: 6px; }
+.player-topbar-actions { display: flex; align-items: center; gap: 12px; }
+.player-src-selector { display: flex; background: rgba(255, 255, 255, 0.08); padding: 3px; border-radius: 8px; gap: 4px; }
+.player-src-btn {
+  background: none; border: none; color: var(--text-muted); padding: 4px 10px;
+  border-radius: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.player-src-btn:hover { color: #fff; }
+.player-src-btn.active { background: var(--accent-primary); color: #000; font-weight: 700; }
+.player-src-btn.vlc-btn:hover { background: #FF9500; color: #000; }
+.player-iframe { width: 100%; height: 100%; border: none; background: #000; position: relative; z-index: 2; }
+.player-backdrop { position: absolute; inset: 0; background-size: cover; background-position: center; filter: brightness(0.4) blur(8px); }
+
 

@@ -152,3 +152,11 @@ fn test_handle_ipc_play_episode_and_progress() {
     assert!(js.contains("\"prefetched\":3"));
 }
 
+#[test]
+fn test_handle_ipc_open_vlc() {
+    let vlc_msg = r#"{"cmd": "open_vlc", "episode": 1}"#;
+    let resp = handle_ipc_command(vlc_msg);
+    assert!(resp.is_none());
+}
+
+

@@ -241,6 +241,13 @@ pub fn handle_ipc_command(json_str: &str) -> Option<String> {
             });
             Some(format!("onPlaybackProgressSynced({});", serde_json::to_string(&payload).unwrap_or_default()))
         }
+        "open_vlc" => {
+            let ep = msg.episode.unwrap_or(1);
+            let stream_url = crate::torrent::StreamEndpoint::default().stream_url(ep);
+            let target_url = msg.query.unwrap_or(stream_url);
+            let _ = std::process::Command::new("vlc").arg(&target_url).spawn();
+            None
+        }
         "save_settings" => {
             // Backward-compatibility alias
             None
